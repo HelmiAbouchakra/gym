@@ -1,4 +1,5 @@
 <?php
+session_start();
 require_once __DIR__ . '/config/db_config.php';
 ?>
 <!DOCTYPE html>
@@ -11,34 +12,34 @@ require_once __DIR__ . '/config/db_config.php';
 </head>
 <body class="login-body">
   
-    <form action="loginauth.php" method="post" class="login-form">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" style="width: 1000px; height: 1000px;">
+    <form action="login_action.php" method="post" class="login-form">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800">
   <!-- Background Circle -->
-  <circle cx="200" cy="200" r="190" fill="black"/>
-  <circle cx="200" cy="200" r="180" fill="#111"/>
+  <circle cx="400" cy="400" r="380" fill="black"/>
+  <circle cx="400" cy="400" r="360" fill="#111"/>
   
   <!-- Outer Ring -->
-  <circle cx="200" cy="200" r="170" fill="none" stroke="#FF6B00" stroke-width="8"/>
+  <circle cx="400" cy="400" r="340" fill="none" stroke="#FF6B00" stroke-width="16"/>
   
   <!-- Dumbbell Icon -->
   <g>
     <!-- Left Weight -->
-    <rect x="75" y="170" width="30" height="60" rx="5" fill="#FF6B00"/>
+    <rect x="150" y="340" width="60" height="120" rx="10" fill="#FF6B00"/>
     <!-- Right Weight -->
-    <rect x="295" y="170" width="30" height="60" rx="5" fill="#FF6B00"/>
+    <rect x="590" y="340" width="60" height="120" rx="10" fill="#FF6B00"/>
     <!-- Bar -->
-    <rect x="105" y="190" width="190" height="20" fill="#FF6B00"/>
+    <rect x="210" y="380" width="380" height="40" fill="#FF6B00"/>
     <!-- Center Grip -->
-    <rect x="175" y="185" width="50" height="30" rx="5" fill="#111"/>
+    <rect x="350" y="370" width="100" height="60" rx="10" fill="#111"/>
   </g>
   
   <!-- Text -->
-  <text x="200" y="270" font-family="Arial, sans-serif" font-size="42" font-weight="bold" text-anchor="middle" fill="#FF6B00">POWER</text>
-  <text x="200" y="315" font-family="Arial, sans-serif" font-size="42" font-weight="bold" text-anchor="middle" fill="white">FIT</text>
+  <text x="400" y="540" font-family="Arial, sans-serif" font-size="84" font-weight="bold" text-anchor="middle" fill="#FF6B00">POWER</text>
+  <text x="400" y="630" font-family="Arial, sans-serif" font-size="84" font-weight="bold" text-anchor="middle" fill="white">FIT</text>
   
   <!-- Accent Lines -->
-  <line x1="140" y1="335" x2="260" y2="335" stroke="#FF6B00" stroke-width="4"/>
-  <line x1="150" y1="345" x2="250" y2="345" stroke="#FF6B00" stroke-width="2"/>
+  <line x1="280" y1="670" x2="520" y2="670" stroke="#FF6B00" stroke-width="8"/>
+  <line x1="300" y1="690" x2="500" y2="690" stroke="#FF6B00" stroke-width="4"/>
 </svg>
       <div>
         <button type="submit" class="google-button"><svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="20" height="20" viewBox="0 0 48 48">
@@ -72,12 +73,19 @@ require_once __DIR__ . '/config/db_config.php';
         <label for="password">Password</label>
         <input type="password" name="password" id="password" required  placeholder="Put your password">
       </div>
+      <?php
+        if(isset($_SESSION["error"])){
+          echo "<p style='color: red'>".$_SESSION["error"]."</p>";
+          unset($_SESSION["error"]);
+        }      
+        
+      ?>
       <a href="forgot-password.php" style="color: #fff; align-self:start; margin-left:20px"  ><p class="hover">Forgot Password?</p></a>
       <button type="submit" class="login-button"><a href="loginauth.php">Login</a></button>
    
       <div> 
-      <p>New to Powerfit? <a href="register.php" style="color: #ff4d4d; ">Register</a></p>
+      <p>New to Powerfit? <a href="register.php" style="color: #7FDBFF; ">Register</a></p>
     </div>
     </form>
-</body>
+</body> 
 </html>

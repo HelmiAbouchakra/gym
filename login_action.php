@@ -15,10 +15,12 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
     $stmt->execute();
     $user=$stmt->fetch(PDO::FETCH_ASSOC);
     if($email==$user['email'] && $password==$user['password']) {
-      $_SESSION['user_id']=$user['id'];
       header("Location: index.php");
       exit();
-    } else {
+    }elseif($user["role"]=="admin"){
+      header("Location: adminpanel.php");
+      exit();
+    }else{
       $_SESSION['error']="Invalid email or password";
       header("Location: login.php");
       exit();
