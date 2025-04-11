@@ -129,6 +129,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
                     if ($result) {
                         $success_message = "Profile updated successfully";
                         
+                        // If this is a trainer and username was changed, also update the trainers table
+                        if ($role === 'trainer' && $new_username !== $user['username']) {
+                            try {
+                                $trainer_update_sql = "UPDATE trainers SET name = ? WHERE user_id = ?";
+                                $trainer_stmt = $pdo->prepare($trainer_update_sql);
+                                $trainer_result = $trainer_stmt->execute([$new_username, $user_id]);
+                                
+                                if ($trainer_result) {
+                                    // Add to success message
+                                    $success_message = "Profile and trainer information updated successfully";
+                                }
+                            } catch (PDOException $e) {
+                                // Log the error but don't display to user
+                                error_log("Failed to update trainer name: " . $e->getMessage());
+                            }
+                        }
+                        
                         // Update session variables
                         if ($new_username !== $user['username']) {
                             $_SESSION['username'] = $new_username;
@@ -169,6 +186,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
 // Set success message from query string if present
 if (isset($_GET['success']) && $_GET['success'] === '1') {
     $success_message = "Profile updated successfully";
+}
+
+// Fetch trainer data if user is a trainer
+$trainer = null;
+if ($role === 'trainer') {
+    try {
+        $trainer_stmt = $pdo->prepare("SELECT * FROM trainers WHERE user_id = ?");
+        $trainer_stmt->execute([$user_id]);
+        $trainer = $trainer_stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        // Silent fail - not critical
+    }
 }
 ?>
 
@@ -287,7 +316,8 @@ if (isset($_GET['success']) && $_GET['success'] === '1') {
         }
         
         .form-group input, 
-        .form-group select {
+        .form-group select,
+        .form-group textarea {
             width: 100%;
             padding: 10px;
             border: 1px solid #ddd;
@@ -314,6 +344,12 @@ if (isset($_GET['success']) && $_GET['success'] === '1') {
         .alert-danger {
             background-color: #f8d7da;
             color: #721c24;
+        }
+        
+        .trainer-edit-form {
+            margin-top: 20px; 
+            padding-top: 20px; 
+            border-top: 1px solid #eee;
         }
     </style>
 </head>
@@ -440,32 +476,72 @@ if (isset($_GET['success']) && $_GET['success'] === '1') {
                 <h2>Trainer Information</h2>
                 <?php
                 // Fetch trainer information
-                try {
-                    $trainer_stmt = $pdo->prepare("SELECT * FROM trainers WHERE user_id = ?");
-                    $trainer_stmt->execute([$user_id]);
-                    $trainer = $trainer_stmt->fetch(PDO::FETCH_ASSOC);
+                if ($trainer): ?>
+                    <div class="trainer-info">
+                        <p><strong>Name:</strong> <?php echo htmlspecialchars($trainer['name']); ?></p>
+                        <p><strong>Bio:</strong> <?php echo htmlspecialchars($trainer['bio']); ?></p>
+                        <p><strong>Specialties:</strong> <?php echo htmlspecialchars($trainer['specialties']); ?></p>
+                    </div>
+                    <a href="trainer-dashboard.php" class="btn">Go to Trainer Dashboard</a>
                     
-                    if ($trainer): ?>
-                        <div class="trainer-info">
-                            <p><strong>Name:</strong> <?php echo htmlspecialchars($trainer['name']); ?></p>
-                            <p><strong>Bio:</strong> <?php echo htmlspecialchars($trainer['bio']); ?></p>
-                            <p><strong>Specialties:</strong> <?php echo htmlspecialchars($trainer['specialties']); ?></p>
+                    <!-- Add trainer profile edit form -->
+                    <form action="" method="POST" class="trainer-edit-form">
+                        <h3>Update Trainer Profile</h3>
+                        
+                        <div class="form-group">
+                            <label for="trainer_name">Trainer Name</label>
+                            <input type="text" id="trainer_name" name="trainer_name" value="<?php echo htmlspecialchars($trainer['name']); ?>" required>
                         </div>
-                        <a href="trainer-dashboard.php" class="btn">Go to Trainer Dashboard</a>
-                    <?php else: ?>
-                        <p>Your trainer profile is not complete. Please contact an administrator.</p>
-                    <?php endif;
-                } catch (PDOException $e) {
-                    echo "<p>Could not retrieve trainer information. Please try again later.</p>";
-                }
-                ?>
+                        
+                        <div class="form-group">
+                            <label for="trainer_bio">Bio</label>
+                            <textarea id="trainer_bio" name="trainer_bio" rows="4"><?php echo htmlspecialchars($trainer['bio']); ?></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="trainer_specialties">Specialties</label>
+                            <input type="text" id="trainer_specialties" name="trainer_specialties" value="<?php echo htmlspecialchars($trainer['specialties']); ?>">
+                        </div>
+                        
+                        <button type="submit" name="update_trainer" class="btn">Update Trainer Profile</button>
+                    </form>
+                    
+                    <?php
+                    // Process trainer profile update
+                    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_trainer'])) {
+                        // Get form data
+                        $trainer_name = trim($_POST['trainer_name']);
+                        $trainer_bio = trim($_POST['trainer_bio']);
+                        $trainer_specialties = trim($_POST['trainer_specialties']);
+                        
+                        try {
+                            // Update trainer record
+                            $stmt = $pdo->prepare("UPDATE trainers SET name = ?, bio = ?, specialties = ? WHERE user_id = ?");
+                            $result = $stmt->execute([$trainer_name, $trainer_bio, $trainer_specialties, $user_id]);
+                            
+                            if ($result) {
+                                $success_message = "Trainer profile updated successfully";
+                                header("Location: profile.php?success=1");
+                                exit();
+                            } else {
+                                $error_message = "Failed to update trainer profile";
+                            }
+                        } catch (PDOException $e) {
+                            $error_message = "Database error: " . $e->getMessage();
+                        }
+                    }
+                    ?>
+                
+                <?php else: ?>
+                    <p>Your trainer profile is not complete. Please contact an administrator.</p>
+                <?php endif; ?>
             <?php else: ?>
                 <h2>Account Details</h2>
                 <p><strong>Account Type:</strong> <?php echo ucfirst(htmlspecialchars($user['role'])); ?></p>
                 <p><strong>Joined:</strong> <?php echo date('F j, Y', strtotime($user['created_at'])); ?></p>
                 
                 <?php if ($role === 'admin'): ?>
-                    <a href="admin/dashboard.php" class="btn">Go to Admin Dashboard</a>
+                    <a href="../admin/dashboard.php" class="btn">Go to Admin Dashboard</a>
                 <?php endif; ?>
             <?php endif; ?>
         </div>
@@ -495,4 +571,4 @@ if (isset($_GET['success']) && $_GET['success'] === '1') {
         });
     </script>
 </body>
-</html> 
+</html>

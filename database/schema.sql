@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS order_items (
 
 CREATE TABLE IF NOT EXISTS trainers (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
+    user_id INT NOT NULL UNIQUE,
     name VARCHAR(100) NOT NULL,
     bio TEXT,
     specialties TEXT,
@@ -161,6 +161,7 @@ INSERT IGNORE INTO users (username, password, email, role) VALUES
 ('member', '$2y$10$DFkg3UmFfLSwzPy1mVOULeg.EZ0RpybL6rPXzbcQDzW4BMTvCVNKS', 'member@fitlifegym.com', 'member');
 
 -- Insert a trainer record for the trainer user if it doesn't exist already
-INSERT IGNORE INTO trainers (user_id, name, bio, specialties)
-SELECT id, 'John Doe', 'Certified personal trainer with 5 years of experience', 'Strength training, HIIT, Weight loss'
-FROM users WHERE username = 'trainer';
+INSERT INTO trainers (user_id, name, bio, specialties)
+SELECT id, username, 'Professional fitness trainer', 'General fitness'
+FROM users WHERE username = 'trainer'
+ON DUPLICATE KEY UPDATE name = username;

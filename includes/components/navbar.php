@@ -10,8 +10,10 @@ $is_logged_in = isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
 $username = isset($_SESSION['username']) ? $_SESSION['username'] : '';
 $user_role = isset($_SESSION['role']) ? $_SESSION['role'] : 'member';
 
-// Get base URL for correct path resolution
-$base_url = '';
+// Get base URL for correct path resolution - only set if not already defined
+if (!isset($base_url)) {
+    $base_url = '';
+}
 
 // Default profile image
 $user_image = $base_url . 'assets/images/default-avatar.png';
@@ -150,4 +152,4 @@ $current_page = basename($_SERVER['PHP_SELF']);
             });
         }
     });
-</script> 
+</script>

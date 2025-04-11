@@ -1,7 +1,9 @@
 <!-- Footer Component -->
 <?php
-// Get base URL for correct path resolution
-$base_url = '';
+// Get base URL for correct path resolution - only set if not already defined
+if (!isset($base_url)) {
+    $base_url = '';
+}
 ?>
 <footer id="contact">
     <div class="container">
@@ -60,4 +62,4 @@ $base_url = '';
             });
         });
     });
-</script> 
+</script>
