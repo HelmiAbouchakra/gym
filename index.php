@@ -114,7 +114,7 @@ require_once __DIR__ . '/config/db_config.php';
                         <li><del>Personal training sessions</del></li>
                         <li><del>Access to all classes</del></li>
                     </ul>
-                    <a href="pages/register.php" class="btn btn-outline">Choose Plan</a>
+                    <a href="pages/memberships.php" class="btn btn-outline">Choose Plan</a>
                 </div>
                 <div class="plan-card featured">
                     <h3>Premium</h3>
@@ -126,7 +126,7 @@ require_once __DIR__ . '/config/db_config.php';
                         <li>2 Personal training sessions</li>
                         <li>Access to all classes</li>
                     </ul>
-                    <a href="pages/register.php" class="btn">Choose Plan</a>
+                    <a href="pages/memberships.php" class="btn">Choose Plan</a>
                 </div>
                 <div class="plan-card">
                     <h3>Elite</h3>
@@ -138,7 +138,7 @@ require_once __DIR__ . '/config/db_config.php';
                         <li>5 Personal training sessions</li>
                         <li>Priority class booking</li>
                     </ul>
-                    <a href="pages/register.php" class="btn btn-outline">Choose Plan</a>
+                    <a href="pages/memberships.php" class="btn btn-outline">Choose Plan</a>
                 </div>
             </div>
         </div>
