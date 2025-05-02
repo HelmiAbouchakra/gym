@@ -1,0 +1,155 @@
+.clients-container {
+  /* max-width: 1200px; */
+  margin: 30px auto 50px;
+  padding: 0 15px;
+}
+
+.page-title {
+  margin-bottom: 30px;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 10px;
+}
+
+.clients-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  background-color: white;
+  border-radius: 25px;
+  padding: 5px 15px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.search-box input {
+  border: none;
+  padding: 8px;
+  width: 250px;
+  outline: none;
+}
+
+.search-icon {
+  color: #aaa;
+  margin-right: 5px;
+}
+
+.clients-table-container {
+  background-color: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.clients-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.clients-table th {
+  padding: 15px;
+  text-align: left;
+  background-color: #f8f9fa;
+  color: var(--secondary);
+  font-weight: 600;
+  border-bottom: 2px solid #eee;
+}
+
+.clients-table td {
+  padding: 15px;
+  border-bottom: 1px solid #eee;
+}
+
+.clients-table tr:last-child td {
+  border-bottom: none;
+}
+
+.clients-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.client-info {
+  display: flex;
+  align-items: center;
+}
+
+.client-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  margin-right: 15px;
+  object-fit: cover;
+  background-color: #eee;
+}
+
+.client-name {
+  font-weight: 600;
+}
+
+.client-email {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.booking-count {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.client-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.action-btn {
+  padding: 5px 10px;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.btn-view {
+  background-color: var(--secondary);
+  color: white;
+}
+
+.btn-view:hover {
+  background-color: #1a252f;
+}
+
+.btn-message {
+  background-color: var(--primary);
+  color: white;
+}
+
+.btn-message:hover {
+  background-color: #e64a19;
+}
+
+.no-clients {
+  padding: 30px;
+  text-align: center;
+}
+
+@media (max-width: 992px) {
+  .client-actions {
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .action-btn {
+    text-align: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .clients-table {
+    display: block;
+    overflow-x: auto;
+  }
+}
