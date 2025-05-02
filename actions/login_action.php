@@ -42,19 +42,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['role'] = $user['role'];
 
-                // Redirect based on user role
-                switch ($user['role']) {
-                    case 'admin':
-                        header("Location: ../pages/admin/dashboard.php");
-                        break;
-                    case 'trainer':
-                        header("Location: ../pages/trainer/dashboard.php");
-                        break;
-                    case 'member':
-                    default:
-                        header("Location: ../index.php");
-                        break;
-                }
+                // Redirect all users to index.php regardless of role
+                header("Location: ../index.php");
                 exit();
             } else {
                 $_SESSION['error'] = "Invalid email or password";
