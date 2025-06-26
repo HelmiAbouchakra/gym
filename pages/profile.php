@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
             // Verify current password if changing password
             $password_verified = false;
             if (!empty($current_password)) {
-                $password_verified = password_verify($current_password, $user['password']) || $current_password === $user['password'];
+                $password_verified = password_verify($current_password, $user['password']);
                 if (!$password_verified) {
                     $error_message = "Current password is incorrect";
                 }

@@ -156,12 +156,18 @@ CREATE TABLE IF NOT EXISTS logs (
 -- Create test users (password is 'password123' for all users)
 -- The password hash is created using PHP's password_hash function with PASSWORD_DEFAULT algorithm
 INSERT IGNORE INTO users (username, password, email, role) VALUES 
-('admin', '$2y$10$DFkg3UmFfLSwzPy1mVOULeg.EZ0RpybL6rPXzbcQDzW4BMTvCVNKS', 'admin@fitlifegym.com', 'admin'),
-('trainer', '$2y$10$DFkg3UmFfLSwzPy1mVOULeg.EZ0RpybL6rPXzbcQDzW4BMTvCVNKS', 'trainer@fitlifegym.com', 'trainer'),
-('member', '$2y$10$DFkg3UmFfLSwzPy1mVOULeg.EZ0RpybL6rPXzbcQDzW4BMTvCVNKS', 'member@fitlifegym.com', 'member');
+('admin', '$2y$10$TrgLcL2ivolCk.T56q0wnu6FM02oqX7N0IUx07Yc41z6i8IwGvsFi', 'admin@fitlifegym.com', 'admin'),
+('trainer', '$2y$10$TrgLcL2ivolCk.T56q0wnu6FM02oqX7N0IUx07Yc41z6i8IwGvsFi', 'trainer@fitlifegym.com', 'trainer'),
+('member', '$2y$10$TrgLcL2ivolCk.T56q0wnu6FM02oqX7N0IUx07Yc41z6i8IwGvsFi', 'member@fitlifegym.com', 'member');
 
 -- Insert a trainer record for the trainer user if it doesn't exist already
 INSERT INTO trainers (user_id, name, bio, specialties)
 SELECT id, username, 'Professional fitness trainer', 'General fitness'
 FROM users WHERE username = 'trainer'
 ON DUPLICATE KEY UPDATE name = username;
+
+-- Insert membership plans
+INSERT INTO membership_plans (name, description, duration, price, features, is_active) VALUES
+('Basic Fitness', 'Access to basic gym facilities and equipment', 30, 29.00, 'Gym access 6AM - 10PM,Basic fitness equipment,Locker room access,1 Fitness assessment', 1),
+('Premium Fitness', 'Full access to gym facilities and unlimited group classes', 30, 49.00, 'All equipment access,24/7 Gym access,Locker room access,Quarterly fitness assessment,Unlimited group classes', 1),
+('Elite Fitness', 'Complete fitness experience with personal training sessions', 30, 79.00, '24/7 Gym access,All equipment access,Premium locker access,Monthly fitness assessment,Unlimited group classes,2 PT sessions per month', 1);

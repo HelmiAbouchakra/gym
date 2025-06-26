@@ -1,99 +1,50 @@
 /* Main CSS for FitZone Gym Membership Page */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Open+Sans:wght@400;600&display=swap');
 
+/* Shared variables with main site */
 :root {
-    --primary: #FF6B00;
-    --primary-light: #FF8C3E;
-    --primary-dark: #E05A00;
-    --dark: #1A1A1A;
-    --dark-light: #333333;
-    --dark-lighter: #555555;
-    --light: #FFFFFF;
-    --light-gray: #F5F5F5;
-    --gray: #DDDDDD;
-    --text-dark: #333333;
-    --text-light: #FFFFFF;
+    --primary: #ff5722;
+    --secondary: #2c3e50;
+    --light: #f8f9fa;
+    --dark: #212529;
     --success: #28a745;
+    --gray: #6c757d;
     --danger: #dc3545;
 }
 
+/* Membership-specific styles */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Poppins', sans-serif;
 }
 
 body {
-    background-color: var(--light-gray);
-    color: var(--text-dark);
+    font-family: 'Open Sans', sans-serif;
     line-height: 1.6;
+    color: var(--dark);
+    overflow-x: hidden;
+    padding-top: 80px;
+    background-color: var(--light);
 }
 
 .container {
     width: 100%;
     max-width: 1200px;
     margin: 0 auto;
-    padding: 0 20px;
+    padding: 0 15px;
 }
 
-/* Header Styles */
-header {
-    background-color: var(--dark);
-    color: var(--text-light);
-    padding: 15px 0;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
+/* Membership specific styles below */
 
-header .container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.logo h1 {
-    font-size: 24px;
-    font-weight: 700;
-    color: var(--primary);
-    display: flex;
-    align-items: center;
-}
-
-.logo h1 i {
-    margin-right: 10px;
-}
-
-nav ul {
-    display: flex;
-    list-style: none;
-}
-
-nav ul li {
-    margin-left: 30px;
-}
-
-nav ul li a {
-    color: var(--text-light);
-    text-decoration: none;
-    font-weight: 500;
-    font-size: 16px;
-    transition: color 0.3s ease;
-}
-
-nav ul li a:hover, 
-nav ul li a.active {
-    color: var(--primary);
-}
+/* Main membership content styles start below */
 
 /* Hero Section */
 .hero {
     background: linear-gradient(rgba(26, 26, 26, 0.8), rgba(26, 26, 26, 0.8)), url('gym-background.jpg');
     background-size: cover;
     background-position: center;
-    color: var(--text-light);
+    color: var(--light);
     text-align: center;
     padding: 100px 0;
 }
@@ -156,7 +107,7 @@ nav ul li a.active {
     top: 0;
     right: 0;
     background-color: var(--primary);
-    color: var(--text-light);
+    color: var(--light);
     padding: 5px 15px;
     font-size: 12px;
     font-weight: 600;
@@ -165,7 +116,7 @@ nav ul li a.active {
 
 .plan-header {
     background-color: var(--dark);
-    color: var(--text-light);
+    color: var(--light);
     padding: 30px 20px;
     text-align: center;
 }
@@ -192,7 +143,7 @@ nav ul li a.active {
 
 .price .period {
     font-size: 16px;
-    color: var(--text-light);
+    color: var(--light);
     opacity: 0.8;
 }
 
@@ -236,7 +187,7 @@ nav ul li a.active {
 
 .select-plan {
     background-color: var(--primary);
-    color: var(--text-light);
+    color: var(--light);
     border: none;
     padding: 12px 30px;
     border-radius: 5px;
@@ -325,7 +276,7 @@ nav ul li a.active {
 
 .membership-summary {
     background-color: var(--dark);
-    color: var(--text-light);
+    color: var(--light);
     padding: 25px;
     border-radius: 8px;
     margin-bottom: 40px;
@@ -451,134 +402,20 @@ nav ul li a.active {
 
 #back-to-plans:hover {
     background-color: var(--dark);
-    color: var(--text-light);
+    color: var(--light);
 }
 
 #complete-signup {
     background-color: var(--primary);
     border: none;
-    color: var(--text-light);
+    color: var(--light);
 }
 
 #complete-signup:hover {
     background-color: var(--primary-dark);
 }
 
-/* Footer Styles */
-footer {
-    background-color: var(--dark);
-    color: var(--text-light);
-    padding: 60px 0 20px;
-}
-
-.footer-content {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    margin-bottom: 40px;
-}
-
-.footer-logo {
-    flex: 1;
-    min-width: 200px;
-    margin-bottom: 20px;
-}
-
-.footer-logo h2 {
-    color: var(--primary);
-    margin-bottom: 15px;
-    display: flex;
-    align-items: center;
-}
-
-.footer-logo h2 i {
-    margin-right: 10px;
-}
-
-.footer-links,
-.footer-contact,
-.footer-social {
-    flex: 1;
-    min-width: 200px;
-    margin-bottom: 20px;
-}
-
-.footer-links h3,
-.footer-contact h3,
-.footer-social h3 {
-    margin-bottom: 20px;
-    font-size: 18px;
-    position: relative;
-    padding-bottom: 10px;
-}
-
-.footer-links h3::after,
-.footer-contact h3::after,
-.footer-social h3::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 50px;
-    height: 2px;
-    background-color: var(--primary);
-}
-
-.footer-links ul {
-    list-style: none;
-}
-
-.footer-links ul li {
-    margin-bottom: 10px;
-}
-
-.footer-links ul li a {
-    color: var(--text-light);
-    text-decoration: none;
-    transition: color 0.3s ease;
-}
-
-.footer-links ul li a:hover {
-    color: var(--primary);
-}
-
-.footer-contact p {
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-}
-
-.footer-contact p i {
-    margin-right: 10px;
-    color: var(--primary);
-}
-
-.social-icons {
-    display: flex;
-    gap: 15px;
-}
-
-.social-icons a {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 40px;
-    height: 40px;
-    background-color: var(--dark-light);
-    color: var(--text-light);
-    border-radius: 50%;
-    transition: background-color 0.3s ease;
-}
-
-.social-icons a:hover {
-    background-color: var(--primary);
-}
-
-.footer-bottom {
-    text-align: center;
-    padding-top: 20px;
-    border-top: 1px solid var(--dark-light);
-}
+/* Membership form styles */
 
 /* Responsive Styles */
 @media (max-width: 992px) {
@@ -588,20 +425,6 @@ footer {
 }
 
 @media (max-width: 768px) {
-    header .container {
-        flex-direction: column;
-    }
-    
-    nav ul {
-        margin-top: 20px;
-        justify-content: center;
-        flex-wrap: wrap;
-    }
-    
-    nav ul li {
-        margin: 5px 15px;
-    }
-    
     .hero h2 {
         font-size: 36px;
     }
@@ -633,18 +456,6 @@ footer {
     
     .plan-card.featured:hover {
         transform: translateY(-10px);
-    }
-    
-    .footer-content {
-        flex-direction: column;
-    }
-    
-    .footer-logo, 
-    .footer-links,
-    .footer-contact,
-    .footer-social {
-        width: 100%;
-        margin-bottom: 30px;
     }
 }
 
