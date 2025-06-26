@@ -214,6 +214,8 @@ if ($role === 'trainer') {
     <!-- Custom CSS -->
     <link rel="stylesheet" href="../assets/css/profile.css">
     <link rel="stylesheet" href="../assets/css/styles.css">
+    <link rel="stylesheet" href="../assets/css/navbar.css">
+    <link rel="stylesheet" href="../assets/css/footer.css">
    
 </head>
 <body>

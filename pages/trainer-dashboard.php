@@ -123,6 +123,8 @@ try {
     <!-- Custom CSS -->
     <link rel="stylesheet" href="../assets/css/trainer.css">
     <link rel="stylesheet" href="../assets/css/styles.css">
+    <link rel="stylesheet" href="../assets/css/navbar.css">
+    <link rel="stylesheet" href="../assets/css/footer.css">
 </head>
 <body>
     <!-- Include Navbar Component -->
