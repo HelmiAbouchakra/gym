@@ -9,6 +9,15 @@ $redirectUrl = '';
 // Include database connection
 require_once __DIR__ . '/../includes/db_connect.php';
 
+// Fetch trainers for selection
+$trainers = [];
+try {
+    $trainer_stmt = $pdo->query("SELECT t.id, t.name, t.specialties FROM trainers t WHERE t.is_active = 1");
+    $trainers = $trainer_stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    // Handle error silently
+}
+
 // Fetch membership plans from the database - only get unique plans by name
 try {
     // Use DISTINCT and GROUP BY to avoid duplicates
@@ -40,7 +49,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_membership']))
         'address' => 'Address is required',
         'city' => 'City is required',
         'zip' => 'ZIP code is required',
-        'payment_method' => 'Payment method is required',
         'terms_agree' => 'You must agree to the terms and conditions'
     ];
 
@@ -56,52 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_membership']))
         $errors['email'] = 'Please enter a valid email address';
     }
 
-    // Validate payment information
-    if (!empty($_POST['payment_method']) && $_POST['payment_method'] !== 'paypal') {
-        $card_fields = [
-            'card_name' => 'Card holder name is required',
-            'card_number' => 'Card number is required',
-            'expiry' => 'Expiry date is required',
-            'cvv' => 'CVV is required'
-        ];
-        
-        foreach ($card_fields as $field => $message) {
-            if (empty($_POST[$field])) {
-                $errors[$field] = $message;
-            }
-        }
-        
-        // Validate card number format
-        if (!empty($_POST['card_number'])) {
-            $sanitized = preg_replace('/\s+/', '', $_POST['card_number']);
-            if (!preg_match('/^[0-9]{13,19}$/', $sanitized)) {
-                $errors['card_number'] = 'Please enter a valid card number';
-            }
-        }
-        
-        // Validate expiry date format
-        if (!empty($_POST['expiry'])) {
-            if (!preg_match('/^(0[1-9]|1[0-2])\/([0-9]{2})$/', $_POST['expiry'])) {
-                $errors['expiry'] = 'Please enter a valid expiry date (MM/YY)';
-            } else {
-                // Check if card is expired
-                list($month, $year) = explode('/', $_POST['expiry']);
-                $expiry_date = \DateTime::createFromFormat('my', $month . $year);
-                $current_date = new \DateTime();
-                
-                if ($expiry_date < $current_date) {
-                    $errors['expiry'] = 'The card has expired';
-                }
-            }
-        }
-        
-        // Validate CVV format
-        if (!empty($_POST['cvv'])) {
-            if (!preg_match('/^[0-9]{3,4}$/', $_POST['cvv'])) {
-                $errors['cvv'] = 'Please enter a valid CVV';
-            }
-        }
-    }
+    // Payment validation removed as requested
 
     // Process add-ons
     $selected_addons = [];
@@ -145,26 +108,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_membership']))
     // If no errors, process the form data
     if (empty($errors)) {
         try {
+            // Enable PDO error mode
+            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            
             // Start transaction to ensure data consistency
             $pdo->beginTransaction();
             
             // Check if user is logged in, use session user_id if available
-            $user_id = null;
             if (session_status() === PHP_SESSION_NONE) {
                 session_start();
             }
+            
+            // Use the logged-in user's ID if available, otherwise create a new user
             if (isset($_SESSION['user_id'])) {
                 $user_id = $_SESSION['user_id'];
+            } else {
+                // Create a new user account for this customer
+                $username = strtolower(substr($_POST['first_name'], 0, 1) . $_POST['last_name']) . rand(100, 999);
+                $password = password_hash('changeme123', PASSWORD_DEFAULT); // Default password they can change later
+                $email = $_POST['email'];
+                
+                // Check if email already exists
+                $checkEmailStmt = $pdo->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
+                $checkEmailStmt->execute([$email]);
+                if ($checkEmailStmt->fetch()) {
+                    throw new Exception('A user with this email already exists. Please log in first.');
+                }
+                
+                // Insert new user
+                $newUserStmt = $pdo->prepare("INSERT INTO users (username, password, email, role) VALUES (?, ?, ?, 'member')");
+                $newUserStmt->execute([$username, $password, $email]);
+                $user_id = $pdo->lastInsertId();
+                
+                // You could also automatically log them in here
+                $_SESSION['user_id'] = $user_id;
+                $_SESSION['username'] = $username;
+                $_SESSION['role'] = 'member';
+            }
+            
+            // Make sure we have a user_id
+            if (!$user_id) {
+                throw new Exception('Unable to determine user ID for membership registration');
             }
             
             // 1. Save the membership to the database
             $stmt = $pdo->prepare("INSERT INTO user_memberships 
-                (user_id, plan_id, start_date, end_date, status, payment_method, total_amount) 
-                VALUES (?, ?, CURRENT_DATE(), DATE_ADD(CURRENT_DATE(), INTERVAL ? MONTH), 'active', ?, ?)");
+                (user_id, plan_id, trainer_id, start_date, end_date, status, payment_status, total_amount) 
+                VALUES (?, ?, ?, CURRENT_DATE(), DATE_ADD(CURRENT_DATE(), INTERVAL ? DAY), 'active', 'paid', ?)");
             
             // Get plan details (need to get plan_id and duration)
-            $planStmt = $pdo->prepare("SELECT id, duration FROM membership_plans WHERE name = ? LIMIT 1");
-            $planStmt->execute([$plan_type]);
+            $plan_id_or_name = is_numeric($_POST['plan_type']) ? intval($_POST['plan_type']) : $_POST['plan_type'];
+            $planStmt = $pdo->prepare("SELECT id, duration FROM membership_plans WHERE name = ? OR id = ? LIMIT 1");
+            $planStmt->execute([$plan_id_or_name, $plan_id_or_name]);
             $planData = $planStmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$planData) {
@@ -174,14 +169,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_membership']))
             $plan_id = $planData['id'];
             $duration = $planData['duration']; // Duration in months
             
+            // Get trainer ID if selected
+            $trainer_id = !empty($_POST['trainer_id']) ? intval($_POST['trainer_id']) : null;
+            
+            // Debug information
+            error_log("Membership insertion - User ID: $user_id, Plan ID: $plan_id, Trainer ID: " . ($trainer_id ?? 'NULL') . ", Duration: $duration, Total Price: $total_price");
+            
             // Insert the membership record
             $stmt->execute([
                 $user_id,
                 $plan_id,
+                $trainer_id,
                 $duration,
-                $_POST['payment_method'],
                 $total_price
             ]);
+            
+            // Make sure the membership_addons table exists
+            $pdo->exec("CREATE TABLE IF NOT EXISTS membership_addons (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                membership_id INT NOT NULL,
+                addon_name VARCHAR(100) NOT NULL,
+                addon_price DECIMAL(10, 2) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (membership_id) REFERENCES user_memberships(id) ON DELETE CASCADE
+            )");
             
             // Get the last inserted membership ID
             $membership_id = $pdo->lastInsertId();
@@ -229,7 +240,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_membership']))
                 $pdo->rollBack();
             }
             
-            $errors['general'] = 'An error occurred: ' . $e->getMessage();
+            // Display detailed error message
+            $errors['general'] = 'An error occurred: ' . $e->getMessage() . ' [Code: ' . $e->getCode() . ']';
+            error_log('Membership registration error: ' . $e->getMessage() . ' ' . $e->getTraceAsString());
             $success = false;
         }
     }
@@ -491,55 +504,31 @@ function isChecked($field, $value) {
                     </div>
                 </div>
                 
-                <div class="payment-info">
-                    <h3>Payment Information</h3>
-                    <div class="payment-options">
-                        <div class="payment-option">
-                            <label>
-                                <input type="radio" name="payment_method" value="credit_card" <?php echo isChecked('payment_method', 'credit_card'); ?>>
-                                Credit Card
-                            </label>
-                        </div>
-                        <div class="payment-option">
-                            <label>
-                                <input type="radio" name="payment_method" value="paypal" <?php echo isChecked('payment_method', 'paypal'); ?>>
-                                PayPal
-                            </label>
-                        </div>
-                    </div>
-                    <?php echo showError('payment_method'); ?>
-                    
-                    <div id="credit-card-details" style="<?php echo oldValue('payment_method') === 'paypal' ? 'display:none;' : ''; ?>">
-                        <div class="form-row">
-                            <div class="form-group <?php echo hasError('card_name'); ?>">
-                                <label for="card_name">Cardholder Name*</label>
-                                <input type="text" id="card_name" name="card_name" value="<?php echo oldValue('card_name'); ?>">
-                                <?php echo showError('card_name'); ?>
+                <div class="trainer-selection">
+                    <h3>Select Your Trainer</h3>
+                    <p>Choose a trainer to work with for your fitness journey (optional)</p>
+                    <div class="trainer-list">
+                        <?php if (!empty($trainers)): ?>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="trainer_id">Trainer</label>
+                                    <select id="trainer_id" name="trainer_id" class="form-control">
+                                        <option value="">-- Select a trainer (optional) --</option>
+                                        <?php foreach ($trainers as $trainer): ?>
+                                            <option value="<?php echo $trainer['id']; ?>" <?php echo oldValue('trainer_id') == $trainer['id'] ? 'selected' : ''; ?>>
+                                                <?php echo htmlspecialchars($trainer['name']); ?> - <?php echo htmlspecialchars($trainer['specialties']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
                             </div>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group <?php echo hasError('card_number'); ?>">
-                                <label for="card_number">Card Number*</label>
-                                <input type="text" id="card_number" name="card_number" value="<?php echo oldValue('card_number'); ?>">
-                                <?php echo showError('card_number'); ?>
-                            </div>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group <?php echo hasError('expiry'); ?>">
-                                <label for="expiry">Expiry Date (MM/YY)*</label>
-                                <input type="text" id="expiry" name="expiry" placeholder="MM/YY" value="<?php echo oldValue('expiry'); ?>">
-                                <?php echo showError('expiry'); ?>
-                            </div>
-                            <div class="form-group <?php echo hasError('cvv'); ?>">
-                                <label for="cvv">CVV*</label>
-                                <input type="text" id="cvv" name="cvv" value="<?php echo oldValue('cvv'); ?>">
-                                <?php echo showError('cvv'); ?>
-                            </div>
-                        </div>
+                        <?php else: ?>
+                            <p>No trainers are currently available.</p>
+                        <?php endif; ?>
                     </div>
                 </div>
+
+                <!-- Payment Information section removed as requested -->
                 
                 <div class="terms <?php echo hasError('terms_agree'); ?>">
                     <input type="checkbox" id="terms_agree" name="terms_agree" value="1" <?php echo isChecked('terms_agree', '1'); ?>>
