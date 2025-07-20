@@ -23,17 +23,31 @@ CREATE TABLE IF NOT EXISTS membership_plans (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS trainers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
+    bio TEXT,
+    specialties TEXT,
+    image_url VARCHAR(255),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS user_memberships (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     plan_id INT NOT NULL,
+    trainer_id INT,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
     status ENUM('active', 'expired', 'cancelled', 'pending') NOT NULL DEFAULT 'pending',
     payment_status ENUM('paid', 'pending', 'failed') NOT NULL DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (plan_id) REFERENCES membership_plans(id)
+    FOREIGN KEY (plan_id) REFERENCES membership_plans(id),
+    FOREIGN KEY (trainer_id) REFERENCES trainers(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS product_categories (
@@ -82,17 +96,7 @@ CREATE TABLE IF NOT EXISTS order_items (
     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT
 );
 
-CREATE TABLE IF NOT EXISTS trainers (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL UNIQUE,
-    name VARCHAR(100) NOT NULL,
-    bio TEXT,
-    specialties TEXT,
-    image_url VARCHAR(255),
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
+-- Trainers table moved above to fix foreign key constraint
 
 CREATE TABLE IF NOT EXISTS classes (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -156,12 +160,41 @@ CREATE TABLE IF NOT EXISTS logs (
 -- Create test users (password is 'password123' for all users)
 -- The password hash is created using PHP's password_hash function with PASSWORD_DEFAULT algorithm
 INSERT IGNORE INTO users (username, password, email, role) VALUES 
-('admin', '$2y$10$DFkg3UmFfLSwzPy1mVOULeg.EZ0RpybL6rPXzbcQDzW4BMTvCVNKS', 'admin@fitlifegym.com', 'admin'),
-('trainer', '$2y$10$DFkg3UmFfLSwzPy1mVOULeg.EZ0RpybL6rPXzbcQDzW4BMTvCVNKS', 'trainer@fitlifegym.com', 'trainer'),
-('member', '$2y$10$DFkg3UmFfLSwzPy1mVOULeg.EZ0RpybL6rPXzbcQDzW4BMTvCVNKS', 'member@fitlifegym.com', 'member');
+('admin', '$2y$10$TrgLcL2ivolCk.T56q0wnu6FM02oqX7N0IUx07Yc41z6i8IwGvsFi', 'admin@fitlifegym.com', 'admin'),
+('trainer1', '$2y$10$TrgLcL2ivolCk.T56q0wnu6FM02oqX7N0IUx07Yc41z6i8IwGvsFi', 'trainer1@fitlifegym.com', 'trainer'),
+('trainer2', '$2y$10$TrgLcL2ivolCk.T56q0wnu6FM02oqX7N0IUx07Yc41z6i8IwGvsFi', 'trainer2@fitlifegym.com', 'trainer'),
+('trainer3', '$2y$10$TrgLcL2ivolCk.T56q0wnu6FM02oqX7N0IUx07Yc41z6i8IwGvsFi', 'trainer3@fitlifegym.com', 'trainer'),
+('member', '$2y$10$TrgLcL2ivolCk.T56q0wnu6FM02oqX7N0IUx07Yc41z6i8IwGvsFi', 'member@fitlifegym.com', 'member');
 
--- Insert a trainer record for the trainer user if it doesn't exist already
+-- Insert trainer records for all trainer users if they don't exist already
 INSERT INTO trainers (user_id, name, bio, specialties)
-SELECT id, username, 'Professional fitness trainer', 'General fitness'
-FROM users WHERE username = 'trainer'
-ON DUPLICATE KEY UPDATE name = username;
+SELECT id, 
+    CASE 
+        WHEN username = 'trainer1' THEN 'John Smith'
+        WHEN username = 'trainer2' THEN 'Sarah Johnson'
+        WHEN username = 'trainer3' THEN 'Michael Brown'
+        ELSE username
+    END as name,
+    CASE 
+        WHEN username = 'trainer1' THEN 'Experienced strength and conditioning coach with 10+ years experience'
+        WHEN username = 'trainer2' THEN 'Certified yoga instructor and nutritional specialist'
+        WHEN username = 'trainer3' THEN 'Professional bodybuilder and fitness expert'
+        ELSE 'Professional fitness trainer'
+    END as bio,
+    CASE 
+        WHEN username = 'trainer1' THEN 'Strength training,Weight loss,Sports conditioning'
+        WHEN username = 'trainer2' THEN 'Yoga,Pilates,Nutrition planning'
+        WHEN username = 'trainer3' THEN 'Bodybuilding,Muscle gain,Competition prep'
+        ELSE 'General fitness'
+    END as specialties
+FROM users WHERE role = 'trainer'
+ON DUPLICATE KEY UPDATE 
+    name = VALUES(name),
+    bio = VALUES(bio),
+    specialties = VALUES(specialties);
+
+-- Insert membership plans
+INSERT INTO membership_plans (name, description, duration, price, features, is_active) VALUES
+('Basic Fitness', 'Access to basic gym facilities and equipment', 30, 29.00, 'Gym access 6AM - 10PM,Basic fitness equipment,Locker room access,1 Fitness assessment', 1),
+('Premium Fitness', 'Full access to gym facilities and unlimited group classes', 30, 49.00, 'All equipment access,24/7 Gym access,Locker room access,Quarterly fitness assessment,Unlimited group classes', 1),
+('Elite Fitness', 'Complete fitness experience with personal training sessions', 30, 79.00, '24/7 Gym access,All equipment access,Premium locker access,Monthly fitness assessment,Unlimited group classes,2 PT sessions per month', 1);

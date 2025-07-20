@@ -34,9 +34,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if ($stmt->rowCount() > 0) {
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            // Verify password - try both hashed and plain text comparison
-            // This handles both new users (with hashed passwords) and existing users (if they have plain text passwords)
-            if (password_verify($password, $user['password']) || $password === $user['password']) {
+            // Verify password using secure password_verify function
+            if (password_verify($password, $user['password'])) {
                 // Set user session data
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['username'] = $user['username'];

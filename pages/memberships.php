@@ -6,6 +6,35 @@ $success = false;
 $successMessage = '';
 $redirectUrl = '';
 
+// Include database connection
+require_once __DIR__ . '/../includes/db_connect.php';
+
+// Fetch trainers for selection
+$trainers = [];
+try {
+    $trainer_stmt = $pdo->query("SELECT t.id, t.name, t.specialties FROM trainers t WHERE t.is_active = 1");
+    $trainers = $trainer_stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    // Handle error silently
+}
+
+// Fetch membership plans from the database - only get unique plans by name
+try {
+    // Use DISTINCT and GROUP BY to avoid duplicates
+    $stmt = $pdo->query("SELECT DISTINCT mp.* FROM membership_plans mp
+                       JOIN (SELECT MIN(id) as min_id, name
+                             FROM membership_plans 
+                             WHERE is_active = 1
+                             GROUP BY name) unique_plans
+                       ON mp.id = unique_plans.min_id
+                       ORDER BY mp.price ASC");
+    $membershipPlans = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    // Handle database error
+    $dbError = 'Database error: ' . $e->getMessage();
+    $membershipPlans = [];
+}
+
 // Process the form if submitted
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_membership'])) {
     $formSubmitted = true;
@@ -20,7 +49,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_membership']))
         'address' => 'Address is required',
         'city' => 'City is required',
         'zip' => 'ZIP code is required',
-        'payment_method' => 'Payment method is required',
         'terms_agree' => 'You must agree to the terms and conditions'
     ];
 
@@ -36,52 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_membership']))
         $errors['email'] = 'Please enter a valid email address';
     }
 
-    // Validate payment information
-    if (!empty($_POST['payment_method']) && $_POST['payment_method'] !== 'paypal') {
-        $card_fields = [
-            'card_name' => 'Card holder name is required',
-            'card_number' => 'Card number is required',
-            'expiry' => 'Expiry date is required',
-            'cvv' => 'CVV is required'
-        ];
-        
-        foreach ($card_fields as $field => $message) {
-            if (empty($_POST[$field])) {
-                $errors[$field] = $message;
-            }
-        }
-        
-        // Validate card number format
-        if (!empty($_POST['card_number'])) {
-            $sanitized = preg_replace('/\s+/', '', $_POST['card_number']);
-            if (!preg_match('/^[0-9]{13,19}$/', $sanitized)) {
-                $errors['card_number'] = 'Please enter a valid card number';
-            }
-        }
-        
-        // Validate expiry date format
-        if (!empty($_POST['expiry'])) {
-            if (!preg_match('/^(0[1-9]|1[0-2])\/([0-9]{2})$/', $_POST['expiry'])) {
-                $errors['expiry'] = 'Please enter a valid expiry date (MM/YY)';
-            } else {
-                // Check if card is expired
-                list($month, $year) = explode('/', $_POST['expiry']);
-                $expiry_date = \DateTime::createFromFormat('my', $month . $year);
-                $current_date = new \DateTime();
-                
-                if ($expiry_date < $current_date) {
-                    $errors['expiry'] = 'The card has expired';
-                }
-            }
-        }
-        
-        // Validate CVV format
-        if (!empty($_POST['cvv'])) {
-            if (!preg_match('/^[0-9]{3,4}$/', $_POST['cvv'])) {
-                $errors['cvv'] = 'Please enter a valid CVV';
-            }
-        }
-    }
+    // Payment validation removed as requested
 
     // Process add-ons
     $selected_addons = [];
@@ -124,16 +107,144 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_membership']))
 
     // If no errors, process the form data
     if (empty($errors)) {
-        // In a real application, you would:
-        // 1. Save the membership details to a database
-        // 2. Process the payment
-        // 3. Create a user account if needed
-        // 4. Send confirmation emails, etc.
-
-        // For this example, we'll simulate a successful registration
-        $success = true;
-        $successMessage = 'Your membership has been successfully registered!';
-        $redirectUrl = 'thank_you.php?id=' . rand(1000, 9999); // In a real app, use the actual membership ID
+        try {
+            // Enable PDO error mode
+            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            
+            // Start transaction to ensure data consistency
+            $pdo->beginTransaction();
+            
+            // Check if user is logged in, use session user_id if available
+            if (session_status() === PHP_SESSION_NONE) {
+                session_start();
+            }
+            
+            // Use the logged-in user's ID if available, otherwise create a new user
+            if (isset($_SESSION['user_id'])) {
+                $user_id = $_SESSION['user_id'];
+            } else {
+                // Create a new user account for this customer
+                $username = strtolower(substr($_POST['first_name'], 0, 1) . $_POST['last_name']) . rand(100, 999);
+                $password = password_hash('changeme123', PASSWORD_DEFAULT); // Default password they can change later
+                $email = $_POST['email'];
+                
+                // Check if email already exists
+                $checkEmailStmt = $pdo->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
+                $checkEmailStmt->execute([$email]);
+                if ($checkEmailStmt->fetch()) {
+                    throw new Exception('A user with this email already exists. Please log in first.');
+                }
+                
+                // Insert new user
+                $newUserStmt = $pdo->prepare("INSERT INTO users (username, password, email, role) VALUES (?, ?, ?, 'member')");
+                $newUserStmt->execute([$username, $password, $email]);
+                $user_id = $pdo->lastInsertId();
+                
+                // You could also automatically log them in here
+                $_SESSION['user_id'] = $user_id;
+                $_SESSION['username'] = $username;
+                $_SESSION['role'] = 'member';
+            }
+            
+            // Make sure we have a user_id
+            if (!$user_id) {
+                throw new Exception('Unable to determine user ID for membership registration');
+            }
+            
+            // 1. Save the membership to the database
+            $stmt = $pdo->prepare("INSERT INTO user_memberships 
+                (user_id, plan_id, trainer_id, start_date, end_date, status, payment_status, total_amount) 
+                VALUES (?, ?, ?, CURRENT_DATE(), DATE_ADD(CURRENT_DATE(), INTERVAL ? DAY), 'active', 'paid', ?)");
+            
+            // Get plan details (need to get plan_id and duration)
+            $plan_id_or_name = is_numeric($_POST['plan_type']) ? intval($_POST['plan_type']) : $_POST['plan_type'];
+            $planStmt = $pdo->prepare("SELECT id, duration FROM membership_plans WHERE name = ? OR id = ? LIMIT 1");
+            $planStmt->execute([$plan_id_or_name, $plan_id_or_name]);
+            $planData = $planStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$planData) {
+                throw new Exception('Selected plan not found');
+            }
+            
+            $plan_id = $planData['id'];
+            $duration = $planData['duration']; // Duration in months
+            
+            // Get trainer ID if selected
+            $trainer_id = !empty($_POST['trainer_id']) ? intval($_POST['trainer_id']) : null;
+            
+            // Debug information
+            error_log("Membership insertion - User ID: $user_id, Plan ID: $plan_id, Trainer ID: " . ($trainer_id ?? 'NULL') . ", Duration: $duration, Total Price: $total_price");
+            
+            // Insert the membership record
+            $stmt->execute([
+                $user_id,
+                $plan_id,
+                $trainer_id,
+                $duration,
+                $total_price
+            ]);
+            
+            // Make sure the membership_addons table exists
+            $pdo->exec("CREATE TABLE IF NOT EXISTS membership_addons (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                membership_id INT NOT NULL,
+                addon_name VARCHAR(100) NOT NULL,
+                addon_price DECIMAL(10, 2) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (membership_id) REFERENCES user_memberships(id) ON DELETE CASCADE
+            )");
+            
+            // Get the last inserted membership ID
+            $membership_id = $pdo->lastInsertId();
+            
+            // 2. Save add-ons if selected
+            if (!empty($selected_addons)) {
+                $addon_stmt = $pdo->prepare("INSERT INTO membership_addons 
+                    (membership_id, addon_name, addon_price) VALUES (?, ?, ?)");
+                
+                foreach ($selected_addons as $addon) {
+                    $addon_name = $available_addons[$addon]['name'];
+                    $addon_price = $available_addons[$addon]['price'];
+                    $addon_stmt->execute([$membership_id, $addon_name, $addon_price]);
+                }
+            }
+            
+            // 3. Save customer information
+            $customer_stmt = $pdo->prepare("INSERT INTO customer_details 
+                (membership_id, first_name, last_name, email, phone, address, city, state, zip) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                
+            $customer_stmt->execute([
+                $membership_id,
+                $_POST['first_name'],
+                $_POST['last_name'],
+                $_POST['email'],
+                $_POST['phone'],
+                $_POST['address'],
+                $_POST['city'],
+                $_POST['state'] ?? '',
+                $_POST['zip']
+            ]);
+            
+            // Commit the transaction
+            $pdo->commit();
+            
+            // Success
+            $success = true;
+            $successMessage = 'Your membership has been successfully registered!';
+            $redirectUrl = 'thank_you.php?id=' . $membership_id;
+            
+        } catch (Exception $e) {
+            // Rollback transaction on error
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            
+            // Display detailed error message
+            $errors['general'] = 'An error occurred: ' . $e->getMessage() . ' [Code: ' . $e->getCode() . ']';
+            error_log('Membership registration error: ' . $e->getMessage() . ' ' . $e->getTraceAsString());
+            $success = false;
+        }
     }
 }
 
@@ -174,27 +285,21 @@ function isChecked($field, $value) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FitZone Gym Memberships</title>
-    <link rel="stylesheet" href="../assets/css/memberships.css"
+    <title>FitLife Gym Memberships</title>
+    <link rel="stylesheet" href="../assets/css/styles.css">
+    <link rel="stylesheet" href="../assets/css/navbar.css">
+    <link rel="stylesheet" href="../assets/css/footer.css">
+    <link rel="stylesheet" href="../assets/css/memberships.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <header>
-        <div class="container">
-            <div class="logo">
-                <h1><i class="fas fa-dumbbell"></i> FitZone</h1>
-            </div>
-            <nav>
-                <ul>
-                    <li><a href="#">Home</a></li>
-                    <li><a href="#" class="active">Memberships</a></li>
-                    <li><a href="#">Classes</a></li>
-                    <li><a href="#">Trainers</a></li>
-                    <li><a href="#">Contact</a></li>
-                </ul>
-            </nav>
-        </div>
-    </header>
+    <?php 
+    // Set the base URL for the navbar component
+    $base_url = '../';
+    
+    // Include navbar component
+    include_once '../includes/components/navbar.php';
+    ?>
     
     <?php if ($success): ?>
     <div class="success-message">
@@ -221,79 +326,56 @@ function isChecked($field, $value) {
     
     <section class="membership-plans" id="membership-plans" <?php echo $formSubmitted && empty($errors) ? 'style="display:none;"' : ''; ?>>
         <div class="container">
+            <?php if (isset($dbError)): ?>
+                <div class="error-alert">
+                    <?php echo $dbError; ?>
+                </div>
+            <?php endif; ?>
+            
             <div class="plan-cards">
-                <div class="plan-card" data-plan="basic">
-                    <div class="plan-header">
-                        <h3>Basic Fitness</h3>
-                        <div class="price">
-                            <span class="currency">$</span>
-                            <span class="amount">29</span>
-                            <span class="period">/month</span>
-                        </div>
-                    </div>
-                    <div class="plan-features">
-                        <ul>
-                            <li><i class="fas fa-check"></i> Gym access 6AM - 10PM</li>
-                            <li><i class="fas fa-check"></i> Basic fitness equipment</li>
-                            <li><i class="fas fa-check"></i> Locker room access</li>
-                            <li><i class="fas fa-check"></i> 1 Fitness assessment</li>
-                            <li class="unavailable"><i class="fas fa-times"></i> Group classes</li>
-                            <li class="unavailable"><i class="fas fa-times"></i> Personal training</li>
-                        </ul>
-                    </div>
-                    <div class="plan-footer">
-                        <button class="select-plan" data-plan="basic" data-price="29">SELECT PLAN</button>
-                    </div>
-                </div>
+                <?php 
+                $featuredPlanIndex = min(1, count($membershipPlans) - 1); // Set the second plan as featured by default (or first if only one plan)
                 
-                <div class="plan-card featured" data-plan="premium">
-                    <div class="featured-tag">MOST POPULAR</div>
+                foreach ($membershipPlans as $index => $plan): 
+                    // Extract features to array for display
+                    $features = explode(',', $plan['features']);
+                    $planClassName = strtolower(str_replace(' ', '-', $plan['name']));
+                ?>
+                <div class="plan-card" data-plan="<?php echo $planClassName; ?>">
+                    <?php if ($index === $featuredPlanIndex && count($membershipPlans) > 1): ?>
+                        <div class="featured-tag">MOST POPULAR</div>
+                    <?php endif; ?>
+                    
                     <div class="plan-header">
-                        <h3>Premium Fitness</h3>
+                        <h3><?php echo htmlspecialchars($plan['name']); ?></h3>
                         <div class="price">
                             <span class="currency">$</span>
-                            <span class="amount">49</span>
+                            <span class="amount"><?php echo (int)$plan['price']; ?></span>
                             <span class="period">/month</span>
                         </div>
                     </div>
+                    
                     <div class="plan-features">
                         <ul>
-                            <li><i class="fas fa-check"></i> 24/7 Gym access</li>
-                            <li><i class="fas fa-check"></i> All equipment access</li>
-                            <li><i class="fas fa-check"></i> Locker room access</li>
-                            <li><i class="fas fa-check"></i> Quarterly fitness assessment</li>
-                            <li><i class="fas fa-check"></i> Unlimited group classes</li>
-                            <li class="unavailable"><i class="fas fa-times"></i> Personal training</li>
+                            <?php foreach ($features as $feature): ?>
+                                <li><i class="fas fa-check"></i> <?php echo htmlspecialchars(trim($feature)); ?></li>
+                            <?php endforeach; ?>
                         </ul>
                     </div>
+                    
                     <div class="plan-footer">
-                        <button class="select-plan" data-plan="premium" data-price="49">SELECT PLAN</button>
+                        <button class="select-plan" data-plan="<?php echo $planClassName; ?>" data-price="<?php echo (int)$plan['price']; ?>" data-name="<?php echo htmlspecialchars($plan['name']); ?>">
+                            SELECT PLAN
+                        </button>
                     </div>
                 </div>
+                <?php endforeach; ?>
                 
-                <div class="plan-card" data-plan="elite">
-                    <div class="plan-header">
-                        <h3>Elite Fitness</h3>
-                        <div class="price">
-                            <span class="currency">$</span>
-                            <span class="amount">79</span>
-                            <span class="period">/month</span>
-                        </div>
-                    </div>
-                    <div class="plan-features">
-                        <ul>
-                            <li><i class="fas fa-check"></i> 24/7 Gym access</li>
-                            <li><i class="fas fa-check"></i> All equipment access</li>
-                            <li><i class="fas fa-check"></i> Premium locker access</li>
-                            <li><i class="fas fa-check"></i> Monthly fitness assessment</li>
-                            <li><i class="fas fa-check"></i> Unlimited group classes</li>
-                            <li><i class="fas fa-check"></i> 2 PT sessions per month</li>
-                        </ul>
-                    </div>
-                    <div class="plan-footer">
-                        <button class="select-plan" data-plan="elite" data-price="79">SELECT PLAN</button>
-                    </div>
+                <?php if (empty($membershipPlans)): ?>
+                <div class="no-plans-message">
+                    <p>No membership plans are currently available. Please check back later.</p>
                 </div>
+                <?php endif; ?>
             </div>
         </div>
     </section>
@@ -308,50 +390,48 @@ function isChecked($field, $value) {
                 <input type="hidden" id="base-price" name="base_price" value="<?php echo oldValue('base_price'); ?>">
                 <input type="hidden" id="plan-display-name" name="plan_display_name" value="<?php echo oldValue('plan_display_name'); ?>">
                 
+                <?php
+                // Define add-ons to reduce repetition
+                $addons = [
+                    [
+                        'id' => 'personal_training',
+                        'name' => 'Personal Training Sessions',
+                        'description' => 'One-on-one training with a certified fitness coach',
+                        'price' => 30
+                    ],
+                    [
+                        'id' => 'nutrition_plan',
+                        'name' => 'Nutrition Plan',
+                        'description' => 'Customized meal plans to support your fitness goals',
+                        'price' => 25
+                    ],
+                    [
+                        'id' => 'guest_passes',
+                        'name' => 'Guest Passes',
+                        'description' => 'Bring a friend (4 passes per month)',
+                        'price' => 15
+                    ],
+                    [
+                        'id' => 'towel_service',
+                        'name' => 'Towel Service',
+                        'description' => 'Fresh towels provided during each visit',
+                        'price' => 10
+                    ]
+                ];
+                ?>
                 <div class="addons-container">
+                    <?php foreach ($addons as $addon): ?>
                     <div class="addon-item">
-                        <input type="checkbox" id="personal_training" name="addons[]" value="personal_training" <?php echo isChecked('addons', 'personal_training'); ?>>
-                        <label for="personal_training">
+                        <input type="checkbox" id="<?php echo $addon['id']; ?>" name="addons[]" value="<?php echo $addon['id']; ?>" <?php echo isChecked('addons', $addon['id']); ?>>
+                        <label for="<?php echo $addon['id']; ?>">
                             <div class="addon-info">
-                                <h4>Personal Training Sessions</h4>
-                                <p>One-on-one training with a certified fitness coach</p>
+                                <h4><?php echo htmlspecialchars($addon['name']); ?></h4>
+                                <p><?php echo htmlspecialchars($addon['description']); ?></p>
                             </div>
-                            <div class="addon-price">$30/month</div>
+                            <div class="addon-price">$<?php echo $addon['price']; ?>/month</div>
                         </label>
                     </div>
-                    
-                    <div class="addon-item">
-                        <input type="checkbox" id="nutrition_plan" name="addons[]" value="nutrition_plan" <?php echo isChecked('addons', 'nutrition_plan'); ?>>
-                        <label for="nutrition_plan">
-                            <div class="addon-info">
-                                <h4>Nutrition Plan</h4>
-                                <p>Customized meal plans to support your fitness goals</p>
-                            </div>
-                            <div class="addon-price">$25/month</div>
-                        </label>
-                    </div>
-                    
-                    <div class="addon-item">
-                        <input type="checkbox" id="guest_passes" name="addons[]" value="guest_passes" <?php echo isChecked('addons', 'guest_passes'); ?>>
-                        <label for="guest_passes">
-                            <div class="addon-info">
-                                <h4>Guest Passes</h4>
-                                <p>Bring a friend (4 passes per month)</p>
-                            </div>
-                            <div class="addon-price">$15/month</div>
-                        </label>
-                    </div>
-                    
-                    <div class="addon-item">
-                        <input type="checkbox" id="towel_service" name="addons[]" value="towel_service" <?php echo isChecked('addons', 'towel_service'); ?>>
-                        <label for="towel_service">
-                            <div class="addon-info">
-                                <h4>Towel Service</h4>
-                                <p>Fresh towels provided during each visit</p>
-                            </div>
-                            <div class="addon-price">$10/month</div>
-                        </label>
-                    </div>
+                    <?php endforeach; ?>
                 </div>
                 
                 <div class="membership-summary">
@@ -424,55 +504,31 @@ function isChecked($field, $value) {
                     </div>
                 </div>
                 
-                <div class="payment-info">
-                    <h3>Payment Information</h3>
-                    <div class="payment-options">
-                        <div class="payment-option">
-                            <label>
-                                <input type="radio" name="payment_method" value="credit_card" <?php echo isChecked('payment_method', 'credit_card'); ?>>
-                                Credit Card
-                            </label>
-                        </div>
-                        <div class="payment-option">
-                            <label>
-                                <input type="radio" name="payment_method" value="paypal" <?php echo isChecked('payment_method', 'paypal'); ?>>
-                                PayPal
-                            </label>
-                        </div>
-                    </div>
-                    <?php echo showError('payment_method'); ?>
-                    
-                    <div id="credit-card-details" style="<?php echo oldValue('payment_method') === 'paypal' ? 'display:none;' : ''; ?>">
-                        <div class="form-row">
-                            <div class="form-group <?php echo hasError('card_name'); ?>">
-                                <label for="card_name">Cardholder Name*</label>
-                                <input type="text" id="card_name" name="card_name" value="<?php echo oldValue('card_name'); ?>">
-                                <?php echo showError('card_name'); ?>
+                <div class="trainer-selection">
+                    <h3>Select Your Trainer</h3>
+                    <p>Choose a trainer to work with for your fitness journey (optional)</p>
+                    <div class="trainer-list">
+                        <?php if (!empty($trainers)): ?>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="trainer_id">Trainer</label>
+                                    <select id="trainer_id" name="trainer_id" class="form-control">
+                                        <option value="">-- Select a trainer (optional) --</option>
+                                        <?php foreach ($trainers as $trainer): ?>
+                                            <option value="<?php echo $trainer['id']; ?>" <?php echo oldValue('trainer_id') == $trainer['id'] ? 'selected' : ''; ?>>
+                                                <?php echo htmlspecialchars($trainer['name']); ?> - <?php echo htmlspecialchars($trainer['specialties']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
                             </div>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group <?php echo hasError('card_number'); ?>">
-                                <label for="card_number">Card Number*</label>
-                                <input type="text" id="card_number" name="card_number" value="<?php echo oldValue('card_number'); ?>">
-                                <?php echo showError('card_number'); ?>
-                            </div>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group <?php echo hasError('expiry'); ?>">
-                                <label for="expiry">Expiry Date (MM/YY)*</label>
-                                <input type="text" id="expiry" name="expiry" placeholder="MM/YY" value="<?php echo oldValue('expiry'); ?>">
-                                <?php echo showError('expiry'); ?>
-                            </div>
-                            <div class="form-group <?php echo hasError('cvv'); ?>">
-                                <label for="cvv">CVV*</label>
-                                <input type="text" id="cvv" name="cvv" value="<?php echo oldValue('cvv'); ?>">
-                                <?php echo showError('cvv'); ?>
-                            </div>
-                        </div>
+                        <?php else: ?>
+                            <p>No trainers are currently available.</p>
+                        <?php endif; ?>
                     </div>
                 </div>
+
+                <!-- Payment Information section removed as requested -->
                 
                 <div class="terms <?php echo hasError('terms_agree'); ?>">
                     <input type="checkbox" id="terms_agree" name="terms_agree" value="1" <?php echo isChecked('terms_agree', '1'); ?>>
@@ -488,49 +544,10 @@ function isChecked($field, $value) {
         </div>
     </section>
     
-    <footer>
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-logo">
-                    <h2><i class="fas fa-dumbbell"></i> FitZone</h2>
-                    <p>Your journey to fitness excellence starts here. Join our community and transform your life.</p>
-                </div>
-                
-                <div class="footer-links">
-                    <h3>Quick Links</h3>
-                    <ul>
-                        <li><a href="#">Home</a></li>
-                        <li><a href="#">About Us</a></li>
-                        <li><a href="#">Classes</a></li>
-                        <li><a href="#">Trainers</a></li>
-                        <li><a href="#">Blog</a></li>
-                        <li><a href="#">Contact</a></li>
-                    </ul>
-                </div>
-                
-                <div class="footer-contact">
-                    <h3>Contact Us</h3>
-                    <p><i class="fas fa-map-marker-alt"></i> 123 Fitness Street, Workout City</p>
-                    <p><i class="fas fa-phone"></i> (123) 456-7890</p>
-                    <p><i class="fas fa-envelope"></i> info@fitzonefit.com</p>
-                </div>
-                
-                <div class="footer-social">
-                    <h3>Follow Us</h3>
-                    <div class="social-icons">
-                        <a href="#"><i class="fab fa-facebook-f"></i></a>
-                        <a href="#"><i class="fab fa-instagram"></i></a>
-                        <a href="#"><i class="fab fa-twitter"></i></a>
-                        <a href="#"><i class="fab fa-youtube"></i></a>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="footer-bottom">
-                <p>&copy; 2025 FitZone Gym. All Rights Reserved.</p>
-            </div>
-        </div>
-    </footer>
+    <?php
+    // Include footer component
+    include_once '../includes/components/footer.php';
+    ?>
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -538,27 +555,28 @@ function isChecked($field, $value) {
             const planButtons = document.querySelectorAll('.select-plan');
             planButtons.forEach(button => {
                 button.addEventListener('click', function() {
-                    const plan = this.getAttribute('data-plan');
-                    const price = this.getAttribute('data-price');
-                    const planName = this.closest('.plan-card').querySelector('h3').textContent;
+                    // Get plan data
+                    const plan = this.dataset.plan;
+                    const price = this.dataset.price;
+                    const name = this.dataset.name || plan;
                     
+                    // Set form values
                     document.getElementById('plan-type').value = plan;
                     document.getElementById('base-price').value = price;
-                    document.getElementById('plan-display-name').value = planName;
+                    document.getElementById('plan-display-name').value = name;
                     
-                    document.getElementById('selected-plan-name').textContent = planName;
-                    document.getElementById('summary-plan-name').textContent = planName;
-                    document.getElementById('summary-base-price').textContent = '$' + price;
-                    updateTotalPrice();
+                    // Update display name
+                    document.getElementById('selected-plan-name').textContent = name;
                     
+                    // Hide plan selection and show customization form
                     document.getElementById('membership-plans').style.display = 'none';
                     document.getElementById('customization').classList.remove('hidden');
                     
-                    // Scroll to top of customization section
-                    window.scrollTo({
-                        top: document.getElementById('customization').offsetTop - 100,
-                        behavior: 'smooth'
-                    });
+                    // Initialize the price calculation
+                    updateTotalPrice();
+                    
+                    // Scroll to customization section
+                    document.getElementById('customization').scrollIntoView({ behavior: 'smooth' });
                 });
             });
             
@@ -598,19 +616,32 @@ function isChecked($field, $value) {
                 const basePrice = parseFloat(document.getElementById('base-price').value) || 0;
                 let addonsPrice = 0;
                 
-                const priceMap = {
+                // Define addon prices directly to ensure they're accurate
+                const addonPrices = {
                     'personal_training': 30,
                     'nutrition_plan': 25,
                     'guest_passes': 15,
                     'towel_service': 10
                 };
                 
+                // Calculate addons price
                 document.querySelectorAll('input[name="addons[]"]:checked').forEach(checkbox => {
-                    addonsPrice += priceMap[checkbox.value] || 0;
+                    addonsPrice += addonPrices[checkbox.value] || 0;
                 });
                 
-                document.getElementById('summary-addons-price').textContent = '$' + addonsPrice;
-                document.getElementById('summary-total-price').textContent = '$' + (basePrice + addonsPrice);
+                // Format prices with two decimal places
+                const formattedAddonsPrice = addonsPrice.toFixed(2);
+                const total = basePrice + addonsPrice;
+                const formattedTotal = total.toFixed(2);
+                
+                // Update the summary display
+                document.getElementById('summary-addons-price').textContent = '$' + formattedAddonsPrice;
+                document.getElementById('summary-total-price').textContent = '$' + formattedTotal;
+                
+                // Log for debugging
+                console.log('Base price:', basePrice);
+                console.log('Addons price:', addonsPrice);
+                console.log('Total:', total);
             }
             
             // Card number formatting

@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
             // Verify current password if changing password
             $password_verified = false;
             if (!empty($current_password)) {
-                $password_verified = password_verify($current_password, $user['password']) || $current_password === $user['password'];
+                $password_verified = password_verify($current_password, $user['password']);
                 if (!$password_verified) {
                     $error_message = "Current password is incorrect";
                 }
@@ -214,6 +214,8 @@ if ($role === 'trainer') {
     <!-- Custom CSS -->
     <link rel="stylesheet" href="../assets/css/profile.css">
     <link rel="stylesheet" href="../assets/css/styles.css">
+    <link rel="stylesheet" href="../assets/css/navbar.css">
+    <link rel="stylesheet" href="../assets/css/footer.css">
    
 </head>
 <body>

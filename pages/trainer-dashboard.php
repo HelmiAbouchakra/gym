@@ -47,6 +47,23 @@ try {
     $today = date('Y-m-d');
     $time_now = date('H:i:s');
     
+    // Get members who selected this trainer in their memberships
+    $members_stmt = $pdo->prepare("
+        SELECT u.id, u.username, u.email, u.profile_image, 
+               um.start_date, um.end_date, um.status,
+               mp.name as plan_name, mp.price
+        FROM user_memberships um
+        JOIN users u ON um.user_id = u.id
+        JOIN membership_plans mp ON um.plan_id = mp.id
+        WHERE um.trainer_id = ? AND um.status = 'active'
+        ORDER BY um.created_at DESC
+    ");
+    $members_stmt->execute([$trainer_id]);
+    $assigned_members = $members_stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Count total assigned members (through memberships)
+    $assigned_members_count = count($assigned_members);
+    
     $class_stmt = $pdo->prepare("
         SELECT c.*, cs.day_of_week, cs.start_time, cs.end_time, cs.room,
                (SELECT COUNT(*) FROM class_bookings cb WHERE cb.schedule_id = cs.id AND cb.status = 'confirmed') as booked_count
@@ -123,6 +140,83 @@ try {
     <!-- Custom CSS -->
     <link rel="stylesheet" href="../assets/css/trainer.css">
     <link rel="stylesheet" href="../assets/css/styles.css">
+    <link rel="stylesheet" href="../assets/css/navbar.css">
+    <link rel="stylesheet" href="../assets/css/footer.css">
+    <style>
+        .member-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .member-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+        
+        .member-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .member-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .member-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .member-details {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 2px;
+        }
+        
+        .member-dates {
+            font-size: 0.8rem;
+            color: #888;
+        }
+        
+        .member-status {
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .status-active {
+            background-color: #e8f5e9;
+            color: #388e3c;
+        }
+        
+        .status-expired {
+            background-color: #ffebee;
+            color: #d32f2f;
+        }
+        
+        .status-cancelled {
+            background-color: #fafafa;
+            color: #616161;
+        }
+        
+        .status-pending {
+            background-color: #fff8e1;
+            color: #ff8f00;
+        }
+    </style>
 </head>
 <body>
     <!-- Include Navbar Component -->
@@ -151,7 +245,15 @@ try {
                     <i class="fas fa-users"></i>
                 </div>
                 <h2 class="stat-value"><?php echo $client_count; ?></h2>
-                <p class="stat-label">Active Clients</p>
+                <p class="stat-label">Class Clients</p>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-user-friends"></i>
+                </div>
+                <h2 class="stat-value"><?php echo $assigned_members_count; ?></h2>
+                <p class="stat-label">Membership Clients</p>
             </div>
             
             <div class="stat-card">
@@ -220,6 +322,35 @@ try {
             </div>
             
             <div>
+                <div class="dashboard-section">
+                    <h3 class="section-title">Members With Your Membership Plans</h3>
+                    
+                    <?php if (empty($assigned_members)): ?>
+                        <p>No members have selected you as their trainer yet.</p>
+                    <?php else: ?>
+                        <ul class="member-list">
+                            <?php foreach ($assigned_members as $member): ?>
+                                <li class="member-item">
+                                    <div class="member-info">
+                                        <img src="<?php echo !empty($member['profile_image']) ? $base_url . $member['profile_image'] : $base_url . 'assets/images/default-avatar.png'; ?>" 
+                                             alt="<?php echo htmlspecialchars($member['username']); ?>" class="member-avatar">
+                                        <div>
+                                            <strong><?php echo htmlspecialchars($member['username']); ?></strong>
+                                            <div class="member-details">
+                                                <span><?php echo htmlspecialchars($member['plan_name']); ?> - $<?php echo htmlspecialchars($member['price']); ?>/month</span><br>
+                                                <span class="member-dates">From: <?php echo htmlspecialchars($member['start_date']); ?> To: <?php echo htmlspecialchars($member['end_date']); ?></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="member-status status-<?php echo strtolower($member['status']); ?>">
+                                        <?php echo ucfirst(htmlspecialchars($member['status'])); ?>
+                                    </div>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
+                
                 <div class="dashboard-section">
                     <h3 class="section-title">Quick Actions</h3>
                     <div class="action-buttons">

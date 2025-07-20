@@ -1,0 +1,205 @@
+/* Navbar Styles */
+
+/* Header */
+header {
+  background-color: rgba(0, 0, 0, 0.8);
+  padding: 15px 0;
+  position: fixed;
+  width: 100%;
+  z-index: 1000;
+  transition: all 0.3s ease;
+  top: 0;
+  left: 0;
+}
+
+header.scrolled {
+  background-color: rgba(0, 0, 0, 0.95);
+  padding: 10px 0;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: white;
+  text-decoration: none;
+}
+
+.logo span {
+  color: var(--primary);
+}
+
+.nav-links {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  margin: 0;
+}
+
+.nav-links li {
+  margin-left: 30px;
+}
+
+.nav-links a {
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.nav-links a:hover {
+  color: var(--primary);
+}
+
+.auth-buttons a {
+  margin-left: 15px;
+}
+
+/* Admin and Trainer Links */
+.admin-link,
+.trainer-link {
+  display: flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.admin-link {
+  color: #fff !important;
+  background-color: #dc3545;
+}
+
+.trainer-link {
+  color: #fff !important;
+  background-color: #28a745;
+}
+
+.admin-link:hover,
+.trainer-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.admin-link i,
+.trainer-link i {
+  margin-right: 5px;
+}
+
+/* Role-based dropdown styling */
+.dropdown-menu a.admin-item {
+  color: #dc3545;
+}
+
+.dropdown-menu a.trainer-item {
+  color: #28a745;
+}
+
+/* Dropdown menu max height with scrolling for admin with many options */
+.dropdown-menu {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* User Profile Menu in Navbar */
+.user-menu {
+  position: relative;
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.user-profile:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.username {
+  margin-right: 10px;
+  font-weight: 600;
+}
+
+.profile-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--primary);
+  margin-right: 5px;
+  background-color: #fff;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: white;
+  border-radius: 4px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  padding: 10px 0;
+  min-width: 200px;
+  z-index: 1000;
+  display: none;
+  transform: translateY(10px);
+  opacity: 0;
+  transition: all 0.3s ease;
+}
+
+.dropdown-menu.show {
+  display: block;
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.dropdown-menu a {
+  display: block;
+  padding: 10px 20px;
+  color: var(--dark);
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.dropdown-menu a:hover {
+  background-color: var(--light);
+  color: var(--primary);
+}
+
+.dropdown-menu a i {
+  margin-right: 10px;
+  width: 16px;
+  text-align: center;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background-color: #eee;
+  margin: 5px 0;
+}
+
+/* Responsive Navbar */
+@media (max-width: 768px) {
+  .nav-links {
+    display: none;
+  }
+
+  .user-profile {
+    padding: 5px;
+  }
+
+  .username {
+    display: none;
+  }
+}
