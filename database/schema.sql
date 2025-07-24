@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS membership_plans (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
+    name VARCHAR(100) NOT NULL UNIQUE,
     description TEXT,
     duration INT NOT NULL COMMENT 'Duration in days',
     price DECIMAL(10, 2) NOT NULL,
@@ -193,8 +193,8 @@ ON DUPLICATE KEY UPDATE
     bio = VALUES(bio),
     specialties = VALUES(specialties);
 
--- Insert membership plans
-INSERT INTO membership_plans (name, description, duration, price, features, is_active) VALUES
+-- Insert membership plans (using INSERT IGNORE to prevent duplicates)
+INSERT IGNORE INTO membership_plans (name, description, duration, price, features, is_active) VALUES
 ('Basic Fitness', 'Access to basic gym facilities and equipment', 30, 29.00, 'Gym access 6AM - 10PM,Basic fitness equipment,Locker room access,1 Fitness assessment', 1),
 ('Premium Fitness', 'Full access to gym facilities and unlimited group classes', 30, 49.00, 'All equipment access,24/7 Gym access,Locker room access,Quarterly fitness assessment,Unlimited group classes', 1),
 ('Elite Fitness', 'Complete fitness experience with personal training sessions', 30, 79.00, '24/7 Gym access,All equipment access,Premium locker access,Monthly fitness assessment,Unlimited group classes,2 PT sessions per month', 1);

@@ -228,7 +228,12 @@ try {
                 <h1 class="dashboard-title">Trainer Dashboard</h1>
                 <p class="dashboard-welcome">Welcome back, <?php echo htmlspecialchars($trainer['name']); ?>!</p>
             </div>
-            <a href="<?php echo $base_url; ?>pages/profile.php" class="btn btn-outline">Edit Profile</a>
+            <div class="header-actions">
+                <a href="upcoming-classes.php" class="btn btn-primary" style="margin-right: 10px;"><i class="fas fa-calendar-alt"></i> Upcoming Classes</a>
+                <a href="class-clients.php" class="btn btn-primary" style="margin-right: 10px;"><i class="fas fa-users"></i> Class Clients</a>
+                <a href="class-statistics.php" class="btn btn-primary" style="margin-right: 10px;"><i class="fas fa-chart-bar"></i> Statistics</a>
+                <a href="<?php echo $base_url; ?>pages/profile.php" class="btn btn-outline">Edit Profile</a>
+            </div>
         </div>
         
         <div class="stats-container">

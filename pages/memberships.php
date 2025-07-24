@@ -9,6 +9,12 @@ $redirectUrl = '';
 // Include database connection
 require_once __DIR__ . '/../includes/db_connect.php';
 
+// Get database connection
+$pdo = getConnection();
+if (!$pdo) {
+    die('Database connection failed');
+}
+
 // Fetch trainers for selection
 $trainers = [];
 try {
@@ -35,9 +41,16 @@ try {
     $membershipPlans = [];
 }
 
+// Debug: Check if form is being submitted
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    error_log('POST request received');
+    error_log('POST data: ' . print_r($_POST, true));
+}
+
 // Process the form if submitted
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_membership'])) {
     $formSubmitted = true;
+    error_log('Form submission detected - processing membership');
     
     // Validate form data
     $required_fields = [
@@ -105,8 +118,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_membership']))
     // Calculate total price
     $total_price = $base_price + $addons_price;
 
+    // Debug: Check validation results
+    error_log('Validation errors: ' . print_r($errors, true));
+    
     // If no errors, process the form data
     if (empty($errors)) {
+        error_log('No validation errors - proceeding with database insert');
         try {
             // Enable PDO error mode
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -119,28 +136,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_membership']))
                 session_start();
             }
             
-            // Use the logged-in user's ID if available, otherwise create a new user
-            if (isset($_SESSION['user_id'])) {
-                $user_id = $_SESSION['user_id'];
+            // Always create a new user for membership registration
+            $email = $_POST['email'];
+            $username = strtolower(substr($_POST['first_name'], 0, 1) . $_POST['last_name']) . rand(100, 999);
+            $password = password_hash('changeme123', PASSWORD_DEFAULT);
+            
+            // Check if email already exists
+            $checkEmailStmt = $pdo->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
+            $checkEmailStmt->execute([$email]);
+            $existingUser = $checkEmailStmt->fetch();
+            
+            if ($existingUser) {
+                // Use existing user
+                $user_id = $existingUser['id'];
+                error_log('Using existing user ID: ' . $user_id);
             } else {
-                // Create a new user account for this customer
-                $username = strtolower(substr($_POST['first_name'], 0, 1) . $_POST['last_name']) . rand(100, 999);
-                $password = password_hash('changeme123', PASSWORD_DEFAULT); // Default password they can change later
-                $email = $_POST['email'];
-                
-                // Check if email already exists
-                $checkEmailStmt = $pdo->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
-                $checkEmailStmt->execute([$email]);
-                if ($checkEmailStmt->fetch()) {
-                    throw new Exception('A user with this email already exists. Please log in first.');
-                }
-                
-                // Insert new user
+                // Create new user
                 $newUserStmt = $pdo->prepare("INSERT INTO users (username, password, email, role) VALUES (?, ?, ?, 'member')");
                 $newUserStmt->execute([$username, $password, $email]);
                 $user_id = $pdo->lastInsertId();
+                error_log('Created new user with ID: ' . $user_id);
                 
-                // You could also automatically log them in here
+                // Auto-login the new user
                 $_SESSION['user_id'] = $user_id;
                 $_SESSION['username'] = $username;
                 $_SESSION['role'] = 'member';
@@ -153,8 +170,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_membership']))
             
             // 1. Save the membership to the database
             $stmt = $pdo->prepare("INSERT INTO user_memberships 
-                (user_id, plan_id, trainer_id, start_date, end_date, status, payment_status, total_amount) 
-                VALUES (?, ?, ?, CURRENT_DATE(), DATE_ADD(CURRENT_DATE(), INTERVAL ? DAY), 'active', 'paid', ?)");
+                (user_id, plan_id, trainer_id, start_date, end_date, status, payment_status) 
+                VALUES (?, ?, ?, CURRENT_DATE(), DATE_ADD(CURRENT_DATE(), INTERVAL ? DAY), 'active', 'paid')");
             
             // Get plan details (need to get plan_id and duration)
             $plan_id_or_name = is_numeric($_POST['plan_type']) ? intval($_POST['plan_type']) : $_POST['plan_type'];
@@ -180,8 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_membership']))
                 $user_id,
                 $plan_id,
                 $trainer_id,
-                $duration,
-                $total_price
+                $duration
             ]);
             
             // Make sure the membership_addons table exists
@@ -209,7 +225,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_membership']))
                 }
             }
             
-            // 3. Save customer information
+            // 3. Create customer_details table if it doesn't exist
+            $pdo->exec("CREATE TABLE IF NOT EXISTS customer_details (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                membership_id INT NOT NULL,
+                first_name VARCHAR(100) NOT NULL,
+                last_name VARCHAR(100) NOT NULL,
+                email VARCHAR(100) NOT NULL,
+                phone VARCHAR(20) NOT NULL,
+                address TEXT NOT NULL,
+                city VARCHAR(100) NOT NULL,
+                state VARCHAR(100),
+                zip VARCHAR(20) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (membership_id) REFERENCES user_memberships(id) ON DELETE CASCADE
+            )");
+            
+            // Save customer information
             $customer_stmt = $pdo->prepare("INSERT INTO customer_details 
                 (membership_id, first_name, last_name, email, phone, address, city, state, zip) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
@@ -228,6 +260,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_membership']))
             
             // Commit the transaction
             $pdo->commit();
+            error_log('Transaction committed successfully - Membership ID: ' . $membership_id);
             
             // Success
             $success = true;
@@ -245,6 +278,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_membership']))
             error_log('Membership registration error: ' . $e->getMessage() . ' ' . $e->getTraceAsString());
             $success = false;
         }
+    } else {
+        error_log('Form validation failed - not processing');
+    }
+} else {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        error_log('POST received but submit_membership not set');
     }
 }
 
@@ -280,7 +319,6 @@ function isChecked($field, $value) {
     return '';
 }
 ?>
-<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -290,6 +328,30 @@ function isChecked($field, $value) {
     <link rel="stylesheet" href="../assets/css/navbar.css">
     <link rel="stylesheet" href="../assets/css/footer.css">
     <link rel="stylesheet" href="../assets/css/memberships.css">
+    <style>
+        .alert {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            border: 1px solid;
+        }
+        .alert-success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .alert-error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .alert h3 {
+            margin-top: 0;
+        }
+        .alert ul {
+            margin-bottom: 0;
+        }
+    </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
@@ -319,76 +381,78 @@ function isChecked($field, $value) {
     
     <section class="hero">
         <div class="container">
-            <h2>Choose Your <span>Fitness Journey</span></h2>
-            <p>Select the membership plan that fits your lifestyle and goals</p>
+            <h2>Join <span>FitLife Gym</span></h2>
+            <p>Fill out the form below to start your fitness journey with us</p>
         </div>
     </section>
     
-    <section class="membership-plans" id="membership-plans" <?php echo $formSubmitted && empty($errors) ? 'style="display:none;"' : ''; ?>>
+    <section id="membership-form-section" class="">
         <div class="container">
-            <?php if (isset($dbError)): ?>
-                <div class="error-alert">
-                    <?php echo $dbError; ?>
+            <!-- Debug Information -->
+            <?php if ($_SERVER['REQUEST_METHOD'] === 'POST'): ?>
+                <div class="alert alert-error">
+                    <h3>🔍 DEBUG INFO - Form Submitted</h3>
+                    <p><strong>Form submitted:</strong> <?php echo $formSubmitted ? 'YES' : 'NO'; ?></p>
+                    <p><strong>submit_membership set:</strong> <?php echo isset($_POST['submit_membership']) ? 'YES' : 'NO'; ?></p>
+                    <p><strong>plan_type value:</strong> <?php echo htmlspecialchars($_POST['plan_type'] ?? 'NOT SET'); ?></p>
+                    <p><strong>Validation errors count:</strong> <?php echo count($errors); ?></p>
+                    <?php if (!empty($errors)): ?>
+                        <details>
+                            <summary>Show validation errors</summary>
+                            <ul>
+                                <?php foreach ($errors as $field => $error): ?>
+                                    <li><strong><?php echo $field; ?>:</strong> <?php echo htmlspecialchars($error); ?></li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </details>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
             
-            <div class="plan-cards">
-                <?php 
-                $featuredPlanIndex = min(1, count($membershipPlans) - 1); // Set the second plan as featured by default (or first if only one plan)
-                
-                foreach ($membershipPlans as $index => $plan): 
-                    // Extract features to array for display
-                    $features = explode(',', $plan['features']);
-                    $planClassName = strtolower(str_replace(' ', '-', $plan['name']));
-                ?>
-                <div class="plan-card" data-plan="<?php echo $planClassName; ?>">
-                    <?php if ($index === $featuredPlanIndex && count($membershipPlans) > 1): ?>
-                        <div class="featured-tag">MOST POPULAR</div>
-                    <?php endif; ?>
-                    
-                    <div class="plan-header">
-                        <h3><?php echo htmlspecialchars($plan['name']); ?></h3>
-                        <div class="price">
-                            <span class="currency">$</span>
-                            <span class="amount"><?php echo (int)$plan['price']; ?></span>
-                            <span class="period">/month</span>
-                        </div>
+            <?php if ($formSubmitted): ?>
+                <?php if ($success): ?>
+                    <div class="alert alert-success">
+                        <h3>Success!</h3>
+                        <p><?php echo htmlspecialchars($successMessage); ?></p>
                     </div>
-                    
-                    <div class="plan-features">
+                <?php elseif (!empty($errors)): ?>
+                    <div class="alert alert-error">
+                        <h3>Please fix the following errors:</h3>
                         <ul>
-                            <?php foreach ($features as $feature): ?>
-                                <li><i class="fas fa-check"></i> <?php echo htmlspecialchars(trim($feature)); ?></li>
+                            <?php foreach ($errors as $field => $error): ?>
+                                <li><strong><?php echo ucfirst(str_replace('_', ' ', $field)); ?>:</strong> <?php echo htmlspecialchars($error); ?></li>
                             <?php endforeach; ?>
                         </ul>
                     </div>
-                    
-                    <div class="plan-footer">
-                        <button class="select-plan" data-plan="<?php echo $planClassName; ?>" data-price="<?php echo (int)$plan['price']; ?>" data-name="<?php echo htmlspecialchars($plan['name']); ?>">
-                            SELECT PLAN
-                        </button>
-                    </div>
-                </div>
-                <?php endforeach; ?>
-                
-                <?php if (empty($membershipPlans)): ?>
-                <div class="no-plans-message">
-                    <p>No membership plans are currently available. Please check back later.</p>
-                </div>
                 <?php endif; ?>
-            </div>
-        </div>
-    </section>
-    
-    <section id="customization" class="<?php echo (!$formSubmitted || !empty($errors)) ? 'hidden' : ''; ?>">
-        <div class="container">
-            <h2>Customize Your <span id="selected-plan-name"><?php echo oldValue('plan_display_name', 'Membership'); ?></span></h2>
-            <p>Enhance your fitness experience with these add-ons:</p>
+            <?php endif; ?>
+            
+            <h2>Membership Registration</h2>
+            <p>Complete the form below to register for your gym membership:</p>
             
             <form id="membership-form" method="POST" action="">
-                <input type="hidden" id="plan-type" name="plan_type" value="<?php echo oldValue('plan_type'); ?>">
-                <input type="hidden" id="base-price" name="base_price" value="<?php echo oldValue('base_price'); ?>">
-                <input type="hidden" id="plan-display-name" name="plan_display_name" value="<?php echo oldValue('plan_display_name'); ?>">
+                <!-- Plan Selection (now visible) -->
+                <div class="plan-selection-section">
+                    <h3>Select Your Membership Plan</h3>
+                    <div class="form-group">
+                        <label for="plan_type">Membership Plan *</label>
+                        <select id="plan_type" name="plan_type" class="form-control" required>
+                            <option value="">-- Select a Plan --</option>
+                            <?php if (!empty($membershipPlans)): ?>
+                                <?php foreach ($membershipPlans as $plan): ?>
+                                    <option value="<?php echo $plan['id']; ?>" 
+                                            data-price="<?php echo $plan['price']; ?>"
+                                            <?php echo oldValue('plan_type') == $plan['id'] ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($plan['name']); ?> - $<?php echo number_format($plan['price'], 2); ?>/month
+                                    </option>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </select>
+                    </div>
+                </div>
+                
+                <input type="hidden" id="base-price" name="base_price" value="<?php echo oldValue('base_price', '29.00'); ?>">
+                <input type="hidden" id="plan-display-name" name="plan_display_name" value="<?php echo oldValue('plan_display_name', 'Basic Plan'); ?>">
                 
                 <?php
                 // Define add-ons to reduce repetition
