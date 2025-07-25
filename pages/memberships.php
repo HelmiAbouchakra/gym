@@ -24,6 +24,28 @@ try {
     // Handle error silently
 }
 
+// Check if logged-in user already has an active membership
+$hasActiveMembership = false;
+$activeMembershipMessage = '';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+if (isset($_SESSION['user_id'])) {
+    try {
+        $checkStmt = $pdo->prepare("SELECT um.*, mp.name as plan_name FROM user_memberships um JOIN membership_plans mp ON um.plan_id = mp.id WHERE um.user_id = ? AND um.status = 'active' LIMIT 1");
+        $checkStmt->execute([$_SESSION['user_id']]);
+        $activeMembership = $checkStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($activeMembership) {
+            $hasActiveMembership = true;
+            $activeMembershipMessage = "You already have an active membership (" . htmlspecialchars($activeMembership['plan_name']) . "). You can upgrade your membership from your membership dashboard.";
+        }
+    } catch (PDOException $e) {
+        error_log('Error checking existing membership: ' . $e->getMessage());
+    }
+}
+
 // Fetch membership plans from the database - only get unique plans by name
 try {
     // Use DISTINCT and GROUP BY to avoid duplicates
@@ -52,6 +74,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_membership']))
     $formSubmitted = true;
     error_log('Form submission detected - processing membership');
     
+    // Check if user is already logged in and has an active membership
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    
+    if (isset($_SESSION['user_id'])) {
+        try {
+            $checkActiveStmt = $pdo->prepare("SELECT id FROM user_memberships WHERE user_id = ? AND status = 'active' LIMIT 1");
+            $checkActiveStmt->execute([$_SESSION['user_id']]);
+            $existingActiveMembership = $checkActiveStmt->fetch();
+            
+            if ($existingActiveMembership) {
+                $errors['general'] = 'You already have an active membership. Please go to your membership page to upgrade your existing plan instead of creating a new one.';
+            }
+        } catch (PDOException $e) {
+            error_log('Error checking existing membership: ' . $e->getMessage());
+        }
+    }
+    
     // Validate form data
     $required_fields = [
         'plan_type' => 'Please select a membership plan',
@@ -79,44 +120,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_membership']))
 
     // Payment validation removed as requested
 
-    // Process add-ons
-    $selected_addons = [];
-    $addons_price = 0;
-
-    $available_addons = [
-        'personal_training' => [
-            'name' => 'Personal Training Sessions',
-            'price' => 30
-        ],
-        'nutrition_plan' => [
-            'name' => 'Nutrition Plan',
-            'price' => 25
-        ],
-        'guest_passes' => [
-            'name' => 'Guest Passes',
-            'price' => 15
-        ],
-        'towel_service' => [
-            'name' => 'Towel Service',
-            'price' => 10
-        ]
-    ];
-
-    if (!empty($_POST['addons']) && is_array($_POST['addons'])) {
-        foreach ($_POST['addons'] as $addon) {
-            if (array_key_exists($addon, $available_addons)) {
-                $selected_addons[] = $addon;
-                $addons_price += $available_addons[$addon]['price'];
-            }
-        }
-    }
-
     // Process the base plan
     $plan_type = $_POST['plan_type'];
     $base_price = (float) $_POST['base_price'];
 
-    // Calculate total price
-    $total_price = $base_price + $addons_price;
+    // Calculate total price (no addons anymore)
+    $total_price = $base_price;
 
     // Debug: Check validation results
     error_log('Validation errors: ' . print_r($errors, true));
@@ -150,6 +159,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_membership']))
                 // Use existing user
                 $user_id = $existingUser['id'];
                 error_log('Using existing user ID: ' . $user_id);
+                
+                // Check if user already has an active membership
+                $activeMembershipStmt = $pdo->prepare("SELECT id FROM user_memberships WHERE user_id = ? AND status = 'active' LIMIT 1");
+                $activeMembershipStmt->execute([$user_id]);
+                $activeMembership = $activeMembershipStmt->fetch();
+                
+                if ($activeMembership) {
+                    throw new Exception('You already have an active membership. Please upgrade your existing membership instead of creating a new one.');
+                }
             } else {
                 // Create new user
                 $newUserStmt = $pdo->prepare("INSERT INTO users (username, password, email, role) VALUES (?, ?, ?, 'member')");
@@ -200,63 +218,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_membership']))
                 $duration
             ]);
             
-            // Make sure the membership_addons table exists
-            $pdo->exec("CREATE TABLE IF NOT EXISTS membership_addons (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                membership_id INT NOT NULL,
-                addon_name VARCHAR(100) NOT NULL,
-                addon_price DECIMAL(10, 2) NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (membership_id) REFERENCES user_memberships(id) ON DELETE CASCADE
-            )");
-            
             // Get the last inserted membership ID
             $membership_id = $pdo->lastInsertId();
             
-            // 2. Save add-ons if selected
-            if (!empty($selected_addons)) {
-                $addon_stmt = $pdo->prepare("INSERT INTO membership_addons 
-                    (membership_id, addon_name, addon_price) VALUES (?, ?, ?)");
-                
-                foreach ($selected_addons as $addon) {
-                    $addon_name = $available_addons[$addon]['name'];
-                    $addon_price = $available_addons[$addon]['price'];
-                    $addon_stmt->execute([$membership_id, $addon_name, $addon_price]);
-                }
+            // Verify membership was created successfully
+            if (!$membership_id) {
+                throw new Exception('Failed to create membership record');
             }
             
-            // 3. Create customer_details table if it doesn't exist
-            $pdo->exec("CREATE TABLE IF NOT EXISTS customer_details (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                membership_id INT NOT NULL,
-                first_name VARCHAR(100) NOT NULL,
-                last_name VARCHAR(100) NOT NULL,
-                email VARCHAR(100) NOT NULL,
-                phone VARCHAR(20) NOT NULL,
-                address TEXT NOT NULL,
-                city VARCHAR(100) NOT NULL,
-                state VARCHAR(100),
-                zip VARCHAR(20) NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (membership_id) REFERENCES user_memberships(id) ON DELETE CASCADE
-            )");
+            error_log("Created membership with ID: $membership_id");
             
-            // Save customer information
-            $customer_stmt = $pdo->prepare("INSERT INTO customer_details 
-                (membership_id, first_name, last_name, email, phone, address, city, state, zip) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                
-            $customer_stmt->execute([
-                $membership_id,
-                $_POST['first_name'],
-                $_POST['last_name'],
-                $_POST['email'],
-                $_POST['phone'],
-                $_POST['address'],
-                $_POST['city'],
-                $_POST['state'] ?? '',
-                $_POST['zip']
-            ]);
+
             
             // Commit the transaction
             $pdo->commit();
@@ -265,7 +237,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_membership']))
             // Success
             $success = true;
             $successMessage = 'Your membership has been successfully registered!';
-            $redirectUrl = 'thank_you.php?id=' . $membership_id;
+            $redirectUrl = '../index.php?id=' . $membership_id;
             
         } catch (Exception $e) {
             // Rollback transaction on error
@@ -324,34 +296,10 @@ function isChecked($field, $value) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FitLife Gym Memberships</title>
-    <link rel="stylesheet" href="../assets/css/styles.css">
-    <link rel="stylesheet" href="../assets/css/navbar.css">
-    <link rel="stylesheet" href="../assets/css/footer.css">
-    <link rel="stylesheet" href="../assets/css/memberships.css">
-    <style>
-        .alert {
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 5px;
-            border: 1px solid;
-        }
-        .alert-success {
-            background-color: #d4edda;
-            border-color: #c3e6cb;
-            color: #155724;
-        }
-        .alert-error {
-            background-color: #f8d7da;
-            border-color: #f5c6cb;
-            color: #721c24;
-        }
-        .alert h3 {
-            margin-top: 0;
-        }
-        .alert ul {
-            margin-bottom: 0;
-        }
-    </style>
+    <link rel="stylesheet" href="../assets/css/styles.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="../assets/css/navbar.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="../assets/css/footer.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="../assets/css/memberships.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
@@ -388,44 +336,41 @@ function isChecked($field, $value) {
     
     <section id="membership-form-section" class="">
         <div class="container">
-            <!-- Debug Information -->
-            <?php if ($_SERVER['REQUEST_METHOD'] === 'POST'): ?>
-                <div class="alert alert-error">
-                    <h3>🔍 DEBUG INFO - Form Submitted</h3>
-                    <p><strong>Form submitted:</strong> <?php echo $formSubmitted ? 'YES' : 'NO'; ?></p>
-                    <p><strong>submit_membership set:</strong> <?php echo isset($_POST['submit_membership']) ? 'YES' : 'NO'; ?></p>
-                    <p><strong>plan_type value:</strong> <?php echo htmlspecialchars($_POST['plan_type'] ?? 'NOT SET'); ?></p>
-                    <p><strong>Validation errors count:</strong> <?php echo count($errors); ?></p>
-                    <?php if (!empty($errors)): ?>
-                        <details>
-                            <summary>Show validation errors</summary>
+            
+            <?php if ($hasActiveMembership): ?>
+                <!-- Show message for users with active membership -->
+                <div class="alert alert-info" style="text-align: center; padding: 2rem; margin-bottom: 2rem;">
+                    <i class="fas fa-info-circle" style="font-size: 2rem; color: #17a2b8; margin-bottom: 1rem;"></i>
+                    <h3>Active Membership Found</h3>
+                    <p><?php echo $activeMembershipMessage; ?></p>
+                    <div style="margin-top: 1.5rem;">
+                        <a href="my-membership.php" class="btn btn-primary" style="margin-right: 1rem;">
+                            <i class="fas fa-user"></i> View My Membership
+                        </a>
+                        <a href="upgrade-membership.php" class="btn btn-success">
+                            <i class="fas fa-arrow-up"></i> Upgrade Plan
+                        </a>
+                    </div>
+                </div>
+            <?php else: ?>
+                <!-- Show registration form for users without active membership -->
+                <?php if ($formSubmitted): ?>
+                    <?php if ($success): ?>
+                        <div class="alert alert-success">
+                            <h3>Success!</h3>
+                            <p><?php echo htmlspecialchars($successMessage); ?></p>
+                        </div>
+                    <?php elseif (!empty($errors)): ?>
+                        <div class="alert alert-error">
+                            <h3>Please fix the following errors:</h3>
                             <ul>
                                 <?php foreach ($errors as $field => $error): ?>
-                                    <li><strong><?php echo $field; ?>:</strong> <?php echo htmlspecialchars($error); ?></li>
+                                    <li><strong><?php echo ucfirst(str_replace('_', ' ', $field)); ?>:</strong> <?php echo htmlspecialchars($error); ?></li>
                                 <?php endforeach; ?>
                             </ul>
-                        </details>
+                        </div>
                     <?php endif; ?>
-                </div>
-            <?php endif; ?>
-            
-            <?php if ($formSubmitted): ?>
-                <?php if ($success): ?>
-                    <div class="alert alert-success">
-                        <h3>Success!</h3>
-                        <p><?php echo htmlspecialchars($successMessage); ?></p>
-                    </div>
-                <?php elseif (!empty($errors)): ?>
-                    <div class="alert alert-error">
-                        <h3>Please fix the following errors:</h3>
-                        <ul>
-                            <?php foreach ($errors as $field => $error): ?>
-                                <li><strong><?php echo ucfirst(str_replace('_', ' ', $field)); ?>:</strong> <?php echo htmlspecialchars($error); ?></li>
-                            <?php endforeach; ?>
-                        </ul>
-                    </div>
                 <?php endif; ?>
-            <?php endif; ?>
             
             <h2>Membership Registration</h2>
             <p>Complete the form below to register for your gym membership:</p>
@@ -605,6 +550,7 @@ function isChecked($field, $value) {
                     <button type="submit" class="complete-signup" name="submit_membership">COMPLETE SIGNUP</button>
                 </div>
             </form>
+            <?php endif; // End of conditional block for users without active membership ?>
         </div>
     </section>
     
@@ -615,7 +561,47 @@ function isChecked($field, $value) {
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Plan selection
+            // Plan dropdown selection handler
+            const planDropdown = document.getElementById('plan_type');
+            const basePriceInput = document.getElementById('base-price');
+            const planDisplayNameInput = document.getElementById('plan-display-name');
+            
+            if (planDropdown) {
+                planDropdown.addEventListener('change', function() {
+                    const selectedOption = this.options[this.selectedIndex];
+                    if (selectedOption && selectedOption.value) {
+                        const planPrice = selectedOption.dataset.price;
+                        const planName = selectedOption.textContent.split(' - ')[0];
+                        
+                        // Update hidden form fields
+                        if (basePriceInput) basePriceInput.value = planPrice;
+                        if (planDisplayNameInput) planDisplayNameInput.value = planName;
+                        
+                        // Update summary display
+                        updatePlanSummary(planName, planPrice);
+                        
+                        // Update total price calculation
+                        updateTotalPrice();
+                    } else {
+                        // Reset if no plan selected
+                        if (basePriceInput) basePriceInput.value = '0';
+                        if (planDisplayNameInput) planDisplayNameInput.value = '';
+                        updatePlanSummary('Select a plan', '0');
+                        updateTotalPrice();
+                    }
+                });
+            }
+            
+            // Function to update plan summary display
+            function updatePlanSummary(planName, planPrice) {
+                const summaryPlanName = document.getElementById('summary-plan-name');
+                const summaryBasePrice = document.getElementById('summary-base-price');
+                
+                if (summaryPlanName) summaryPlanName.textContent = planName;
+                if (summaryBasePrice) summaryBasePrice.textContent = '$' + parseFloat(planPrice).toFixed(2);
+            }
+            
+            // Plan selection buttons (if any exist)
             const planButtons = document.querySelectorAll('.select-plan');
             planButtons.forEach(button => {
                 button.addEventListener('click', function() {
@@ -625,7 +611,7 @@ function isChecked($field, $value) {
                     const name = this.dataset.name || plan;
                     
                     // Set form values
-                    document.getElementById('plan-type').value = plan;
+                    document.getElementById('plan_type').value = plan;
                     document.getElementById('base-price').value = price;
                     document.getElementById('plan-display-name').value = name;
                     

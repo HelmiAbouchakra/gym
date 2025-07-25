@@ -42,9 +42,12 @@ CREATE TABLE IF NOT EXISTS user_memberships (
     trainer_id INT,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
-    status ENUM('active', 'expired', 'cancelled', 'pending') NOT NULL DEFAULT 'pending',
+    status ENUM('active', 'expired', 'cancelled', 'pending', 'upgraded') NOT NULL DEFAULT 'pending',
     payment_status ENUM('paid', 'pending', 'failed') NOT NULL DEFAULT 'pending',
+    payment_method VARCHAR(50) DEFAULT 'Credit Card',
+    total_amount DECIMAL(10, 2),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (plan_id) REFERENCES membership_plans(id),
     FOREIGN KEY (trainer_id) REFERENCES trainers(id) ON DELETE SET NULL
@@ -166,6 +169,9 @@ INSERT IGNORE INTO users (username, password, email, role) VALUES
 ('trainer3', '$2y$10$TrgLcL2ivolCk.T56q0wnu6FM02oqX7N0IUx07Yc41z6i8IwGvsFi', 'trainer3@fitlifegym.com', 'trainer'),
 ('member', '$2y$10$TrgLcL2ivolCk.T56q0wnu6FM02oqX7N0IUx07Yc41z6i8IwGvsFi', 'member@fitlifegym.com', 'member');
 
+-- Set AUTO_INCREMENT to 6 (next ID after sample users 1-5)
+ALTER TABLE users AUTO_INCREMENT = 6;
+
 -- Insert trainer records for all trainer users if they don't exist already
 INSERT INTO trainers (user_id, name, bio, specialties)
 SELECT id, 
@@ -198,3 +204,36 @@ INSERT IGNORE INTO membership_plans (name, description, duration, price, feature
 ('Basic Fitness', 'Access to basic gym facilities and equipment', 30, 29.00, 'Gym access 6AM - 10PM,Basic fitness equipment,Locker room access,1 Fitness assessment', 1),
 ('Premium Fitness', 'Full access to gym facilities and unlimited group classes', 30, 49.00, 'All equipment access,24/7 Gym access,Locker room access,Quarterly fitness assessment,Unlimited group classes', 1),
 ('Elite Fitness', 'Complete fitness experience with personal training sessions', 30, 79.00, '24/7 Gym access,All equipment access,Premium locker access,Monthly fitness assessment,Unlimited group classes,2 PT sessions per month', 1);
+
+-- Trainer Schedules Table for managing trainer availability
+CREATE TABLE IF NOT EXISTS trainer_schedules (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    trainer_id INT NOT NULL,
+    day_of_week ENUM('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday') NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    is_available BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (trainer_id) REFERENCES trainers(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_trainer_day (trainer_id, day_of_week)
+);
+
+-- Activity Logs Table for audit trail
+CREATE TABLE IF NOT EXISTS activity_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    action VARCHAR(100) NOT NULL,
+    description TEXT,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Create indexes for better performance (using IF NOT EXISTS to prevent duplicates)
+CREATE INDEX IF NOT EXISTS idx_trainer_schedules_trainer_day ON trainer_schedules(trainer_id, day_of_week);
+CREATE INDEX IF NOT EXISTS idx_trainer_schedules_day ON trainer_schedules(day_of_week);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_user ON activity_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_action ON activity_logs(action);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_created ON activity_logs(created_at);

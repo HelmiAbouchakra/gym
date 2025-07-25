@@ -145,14 +145,7 @@ try {
             </div>
           </div>
 
-          <div class="class-actions">
-            <a href="class_details.php?id=<?php echo $class['id']; ?>" class="class-btn btn-view">
-              View Details
-            </a>
-            <a href="edit_class.php?id=<?php echo $class['id']; ?>" class="class-btn btn-edit">
-              Edit Class
-            </a>
-          </div>
+
         </div>
       </div>
       <?php endforeach; ?>

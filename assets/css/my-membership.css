@@ -1,0 +1,779 @@
+/* My Membership Page Styles */
+/* Modern styling to match site design */
+
+:root {
+    --primary: #ff6b35;
+    --primary-light: #ff8c5a;
+    --primary-dark: #e55a2b;
+    --secondary: #2c3e50;
+    --secondary-light: #34495e;
+    --secondary-dark: #1a252f;
+    --accent: #45b7d1;
+    --dark: #2c3e50;
+    --light: #ecf0f1;
+    --white: #ffffff;
+    --gray-100: #f8f9fa;
+    --gray-200: #e9ecef;
+    --gray-300: #dee2e6;
+    --gray-400: #ced4da;
+    --gray-500: #adb5bd;
+    --gray-600: #6c757d;
+    --gray-700: #495057;
+    --gray-800: #343a40;
+    --gray-900: #212529;
+    --success: #28a745;
+    --warning: #ffc107;
+    --danger: #dc3545;
+    --info: #17a2b8;
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    --gradient-secondary: linear-gradient(135deg, var(--secondary) 0%, var(--secondary-dark) 100%);
+    --gradient-accent: linear-gradient(135deg, var(--accent) 0%, #3498db 100%);
+    --gradient-success: linear-gradient(135deg, var(--success) 0%, #1e7e34 100%);
+    --gradient-danger: linear-gradient(135deg, var(--danger) 0%, #c82333 100%);
+    --gradient-warning: linear-gradient(135deg, var(--warning) 0%, #e0a800 100%);
+    --gradient-info: linear-gradient(135deg, var(--info) 0%, #138496 100%);
+    
+    /* Shadows */
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);
+    --shadow-lg: 0 8px 25px rgba(0, 0, 0, 0.2);
+    --shadow-xl: 0 12px 35px rgba(0, 0, 0, 0.25);
+    
+    /* Border radius */
+    --radius-sm: 6px;
+    --radius-md: 12px;
+    --radius-lg: 18px;
+    --radius-xl: 24px;
+    
+    /* Transitions */
+    --transition-fast: 0.2s ease;
+    --transition-normal: 0.3s ease;
+    --transition-slow: 0.5s ease;
+}
+
+/* Main Container */
+.membership-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+/* Page Header */
+.page-header {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.page-header h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--dark);
+    margin-bottom: 1rem;
+    position: relative;
+}
+
+.page-header h1::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 4px;
+    background: var(--gradient-primary);
+    border-radius: 2px;
+}
+
+.page-header h1 i {
+    color: var(--primary);
+    margin-right: 0.5rem;
+}
+
+.page-header p {
+    font-size: 1.1rem;
+    color: var(--gray-600);
+    margin: 0;
+}
+
+/* Alert Messages */
+.alert {
+    padding: 1rem 1.5rem;
+    margin: 1.5rem 0;
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    font-weight: 500;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.alert-success {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    color: #155724;
+    border-color: #c3e6cb;
+}
+
+.alert-error {
+    background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+    color: #721c24;
+    border-color: #f5c6cb;
+}
+
+/* Membership Overview */
+.membership-overview {
+    margin-bottom: 2rem;
+}
+
+.membership-card {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--gray-200);
+    overflow: hidden;
+    position: relative;
+}
+
+.membership-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--gradient-primary);
+}
+
+/* Membership Header */
+.membership-header {
+    padding: 2rem;
+    background: linear-gradient(135deg, var(--gray-100) 0%, var(--white) 100%);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.member-info {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.member-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--gradient-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: var(--white);
+    box-shadow: var(--shadow-md);
+}
+
+.member-details h2 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--dark);
+    margin: 0 0 0.5rem 0;
+}
+
+.member-id {
+    font-size: 1rem;
+    color: var(--gray-600);
+    margin: 0 0 0.25rem 0;
+    font-weight: 600;
+}
+
+.member-since {
+    font-size: 0.9rem;
+    color: var(--gray-500);
+    margin: 0;
+}
+
+.membership-status {
+    text-align: right;
+}
+
+.status-badge {
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--radius-xl);
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.status-badge.status-active {
+    background: var(--gradient-success);
+    color: var(--white);
+}
+
+.status-badge.status-cancelled {
+    background: var(--gradient-danger);
+    color: var(--white);
+}
+
+.status-badge.status-expired {
+    background: var(--gradient-warning);
+    color: var(--white);
+}
+
+.status-badge.status-pending {
+    background: var(--gradient-info);
+    color: var(--white);
+}
+
+/* Membership Body */
+.membership-body {
+    padding: 2rem;
+}
+
+.plan-info {
+    text-align: center;
+    margin-bottom: 2rem;
+    padding-bottom: 2rem;
+    border-bottom: 2px solid var(--gray-200);
+}
+
+.plan-info h3 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--dark);
+    margin: 0 0 1rem 0;
+}
+
+.plan-description {
+    font-size: 1.1rem;
+    color: var(--gray-600);
+    margin: 0 0 1.5rem 0;
+    line-height: 1.6;
+}
+
+.plan-price {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 0.25rem;
+}
+
+.plan-price .price {
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.plan-price .period {
+    font-size: 1.2rem;
+    color: var(--gray-600);
+    font-weight: 500;
+}
+
+/* Membership Dates */
+.membership-dates {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.date-item {
+    text-align: center;
+    padding: 1.5rem;
+    background: var(--gray-100);
+    border-radius: var(--radius-md);
+    border: 2px solid transparent;
+    transition: var(--transition-normal);
+}
+
+.date-item:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+}
+
+.date-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--gray-600);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5rem;
+}
+
+.date-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--dark);
+}
+
+.days-remaining {
+    font-size: 2rem !important;
+    color: var(--primary) !important;
+}
+
+.days-text {
+    font-size: 0.8rem;
+    color: var(--gray-600);
+    font-weight: 500;
+}
+
+/* Progress Bar */
+.progress-bar {
+    margin-top: 1rem;
+}
+
+.progress-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-bottom: 0.5rem;
+}
+
+.progress-track {
+    height: 12px;
+    background: var(--gray-200);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--gradient-primary);
+    border-radius: var(--radius-sm);
+    transition: width 1s ease;
+    position: relative;
+}
+
+.progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.progress-text {
+    font-size: 0.8rem;
+    color: var(--gray-600);
+    text-align: center;
+    margin-top: 0.5rem;
+}
+
+/* Membership Features */
+.membership-features {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--gray-200);
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.membership-features h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--dark);
+    margin: 0 0 1.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.membership-features h3 i {
+    color: var(--primary);
+}
+
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+}
+
+.feature-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: var(--gray-100);
+    border-radius: var(--radius-md);
+    border-left: 4px solid var(--success);
+    transition: var(--transition-normal);
+}
+
+.feature-item:hover {
+    transform: translateX(5px);
+    box-shadow: var(--shadow-sm);
+}
+
+.feature-item i {
+    color: var(--success);
+    font-size: 1.1rem;
+}
+
+.feature-item span {
+    font-weight: 500;
+    color: var(--dark);
+}
+
+/* Payment Information */
+.payment-info {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--gray-200);
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.payment-info h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--dark);
+    margin: 0 0 1.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.payment-info h3 i {
+    color: var(--primary);
+}
+
+.payment-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.payment-item {
+    padding: 1.5rem;
+    background: var(--gray-100);
+    border-radius: var(--radius-md);
+    text-align: center;
+    transition: var(--transition-normal);
+}
+
+.payment-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+
+.payment-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--gray-600);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.75rem;
+}
+
+.payment-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.payment-value i {
+    color: var(--primary);
+}
+
+/* Membership Actions */
+.membership-actions {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--gray-200);
+    padding: 2rem;
+}
+
+.membership-actions h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--dark);
+    margin: 0 0 1.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.membership-actions h3 i {
+    color: var(--primary);
+}
+
+.actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+/* Action Buttons */
+.btn-cancel,
+.btn-reactivate,
+.btn-upgrade,
+.btn-bookings,
+.btn-classes {
+    padding: 1rem 1.5rem;
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: var(--transition-normal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-cancel {
+    background: var(--gradient-danger);
+    color: var(--white);
+}
+
+.btn-reactivate {
+    background: var(--gradient-success);
+    color: var(--white);
+}
+
+.btn-upgrade {
+    background: var(--gradient-warning);
+    color: var(--white);
+}
+
+.btn-bookings {
+    background: var(--gradient-accent);
+    color: var(--white);
+}
+
+.btn-classes {
+    background: var(--gradient-primary);
+    color: var(--white);
+}
+
+.btn-cancel:hover,
+.btn-reactivate:hover,
+.btn-upgrade:hover,
+.btn-bookings:hover,
+.btn-classes:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    text-decoration: none;
+}
+
+/* No Membership State */
+.no-membership {
+    margin-top: 2rem;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    border: 2px dashed var(--gray-300);
+}
+
+.empty-icon {
+    font-size: 4rem;
+    color: var(--gray-400);
+    margin-bottom: 1.5rem;
+}
+
+.empty-state h3 {
+    font-size: 1.8rem;
+    font-weight: 600;
+    color: var(--gray-700);
+    margin: 0 0 1rem 0;
+}
+
+.empty-state p {
+    font-size: 1.1rem;
+    color: var(--gray-600);
+    margin: 0 0 2rem 0;
+    line-height: 1.6;
+}
+
+.empty-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.btn-primary,
+.btn-secondary {
+    padding: 1rem 2rem;
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: 1rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: var(--transition-normal);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-primary {
+    background: var(--gradient-primary);
+    color: var(--white);
+}
+
+.btn-secondary {
+    background: var(--gradient-secondary);
+    color: var(--white);
+}
+
+.btn-primary:hover,
+.btn-secondary:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    text-decoration: none;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease forwards;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .membership-container {
+        padding: 1rem;
+    }
+    
+    .page-header h1 {
+        font-size: 2rem;
+    }
+    
+    .membership-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 1.5rem;
+    }
+    
+    .member-info {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .membership-dates {
+        grid-template-columns: 1fr;
+    }
+    
+    .features-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .payment-details {
+        grid-template-columns: 1fr;
+    }
+    
+    .actions-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .plan-price .price {
+        font-size: 2.5rem;
+    }
+    
+    .empty-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .membership-container {
+        padding: 0.5rem;
+    }
+    
+    .membership-card,
+    .membership-features,
+    .payment-info,
+    .membership-actions {
+        margin: 0 0.5rem 1rem 0.5rem;
+    }
+    
+    .membership-header,
+    .membership-body,
+    .membership-features,
+    .payment-info,
+    .membership-actions {
+        padding: 1.5rem;
+    }
+    
+    .member-avatar {
+        width: 60px;
+        height: 60px;
+        font-size: 1.5rem;
+    }
+    
+    .member-details h2 {
+        font-size: 1.5rem;
+    }
+    
+    .plan-price .price {
+        font-size: 2rem;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .membership-actions {
+        display: none;
+    }
+    
+    .membership-card,
+    .membership-features,
+    .payment-info {
+        break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid var(--gray-400);
+    }
+    
+    .page-header h1::after {
+        display: none;
+    }
+}

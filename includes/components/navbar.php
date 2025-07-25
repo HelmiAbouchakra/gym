@@ -12,7 +12,17 @@ $user_role = isset($_SESSION['role']) ? $_SESSION['role'] : 'member';
 
 // Get base URL for correct path resolution - only set if not already defined
 if (!isset($base_url)) {
-    $base_url = '';
+    // Calculate the correct base URL based on current directory
+    $current_dir = dirname($_SERVER['PHP_SELF']);
+    if (strpos($current_dir, '/pages') !== false) {
+        $base_url = '../';
+    } elseif (strpos($current_dir, '/admin') !== false) {
+        $base_url = '../';
+    } elseif (strpos($current_dir, '/includes') !== false) {
+        $base_url = '../../';
+    } else {
+        $base_url = '';
+    }
 }
 
 // Default profile image
@@ -25,13 +35,14 @@ if ($is_logged_in) {
         $user_image = $base_url . $_SESSION['profile_image'];
     } else {
         // Only query database if image isn't in session
-        require_once __DIR__ . '/../../config/db_config.php';
+        require_once __DIR__ . '/../db_connect.php';
         
         try {
             $user_id = $_SESSION['user_id'];
             
-            // Use the PDO connection from db_config.php
-            if (isset($pdo)) {
+            // Use the getConnection() function
+            $pdo = getConnection();
+            if ($pdo) {
                 // Prepare and execute query to get user's profile image
                 $stmt = $pdo->prepare("SELECT profile_image FROM users WHERE id = ?");
                 $stmt->execute([$user_id]);
@@ -67,7 +78,8 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <li><a href="<?php echo $base_url; ?>index.php#contact">Contact</a></li>
                 
                 <?php if ($is_logged_in && $user_role === 'admin'): ?>
-                <li><a href="<?php echo $base_url; ?>admin/dashboard.php" class="admin-link"><i class="fas fa-tachometer-alt"></i> Admin</a></li>
+                <li><a href="<?php echo $base_url; ?>pages/admin-dashboard.php" class="admin-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                <li><a href="<?php echo $base_url; ?>pages/admin-trainers.php" class="admin-link"><i class="fas fa-users"></i> Manage Trainers</a></li>
                 <?php endif; ?>
                 
                 <?php if ($is_logged_in && $user_role === 'trainer'): ?>
@@ -98,8 +110,8 @@ $current_page = basename($_SERVER['PHP_SELF']);
                             <a href="<?php echo $base_url; ?>pages/profile.php"><i class="fas fa-user"></i> My Profile</a>
                             
                             <?php if ($user_role === 'member'): ?>
-                                <a href="<?php echo $base_url; ?>pages/memberships.php"><i class="fas fa-id-card"></i> My Membership</a>
-                                <a href="<?php echo $base_url; ?>pages/bookings.php"><i class="fas fa-calendar-check"></i> My Bookings</a>
+                                <a href="<?php echo $base_url; ?>pages/my-membership.php"><i class="fas fa-id-card"></i> My Membership</a>
+                                <a href="<?php echo $base_url; ?>pages/my-bookings.php"><i class="fas fa-calendar-check"></i> My Bookings</a>
                             <?php endif; ?>
                             
                             <?php if ($user_role === 'trainer'): ?>
@@ -110,12 +122,13 @@ $current_page = basename($_SERVER['PHP_SELF']);
                             <?php endif; ?>
                             
                             <?php if ($user_role === 'admin'): ?>
-                                <a href="<?php echo $base_url; ?>admin/dashboard.php"><i class="fas fa-tachometer-alt"></i> Admin Dashboard</a>
-                                <a href="<?php echo $base_url; ?>admin/users.php"><i class="fas fa-users-cog"></i> Manage Users</a>
-                                <a href="<?php echo $base_url; ?>admin/memberships.php"><i class="fas fa-tags"></i> Manage Memberships</a>
-                                <a href="<?php echo $base_url; ?>admin/classes.php"><i class="fas fa-dumbbell"></i> Manage Classes</a>
-                                <a href="<?php echo $base_url; ?>admin/trainers.php"><i class="fas fa-user-tie"></i> Manage Trainers</a>
-                                <a href="<?php echo $base_url; ?>admin/reports.php"><i class="fas fa-chart-bar"></i> Reports</a>
+                                <a href="<?php echo $base_url; ?>pages/admin-dashboard.php"><i class="fas fa-tachometer-alt"></i> Admin Dashboard</a>
+                                <a href="<?php echo $base_url; ?>pages/admin-users.php"><i class="fas fa-users-cog"></i> Manage Users</a>
+                                <a href="<?php echo $base_url; ?>pages/admin-trainers.php"><i class="fas fa-users-cog"></i> Manage Trainers</a>
+                                <a href="<?php echo $base_url; ?>pages/admin-memberships.php"><i class="fas fa-id-card"></i> Manage Memberships</a>
+                                <a href="<?php echo $base_url; ?>pages/admin-classes.php"><i class="fas fa-dumbbell"></i> Manage Classes</a>
+                                <a href="<?php echo $base_url; ?>pages/class-statistics.php"><i class="fas fa-chart-bar"></i> Analytics & Reports</a>
+                                <a href="<?php echo $base_url; ?>pages/class-clients.php"><i class="fas fa-users"></i> Class Clients</a>
                             <?php endif; ?>
                             
                             <div class="dropdown-divider"></div>

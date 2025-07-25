@@ -4,12 +4,25 @@
 /* Shared variables with main site */
 :root {
     --primary: #ff5722;
+    --primary-light: #ff7043;
+    --primary-dark: #e64a19;
     --secondary: #2c3e50;
+    --secondary-light: #34495e;
     --light: #f8f9fa;
+    --white: #ffffff;
     --dark: #212529;
     --success: #28a745;
     --gray: #6c757d;
+    --gray-light: #e9ecef;
+    --gray-lighter: #f1f3f4;
     --danger: #dc3545;
+    --border-radius: 12px;
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.1);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.12);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.15);
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --gradient-primary: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    --gradient-secondary: linear-gradient(135deg, var(--secondary) 0%, var(--secondary-light) 100%);
 }
 
 /* Membership-specific styles */
@@ -25,7 +38,8 @@ body {
     color: var(--dark);
     overflow-x: hidden;
     padding-top: 80px;
-    background-color: var(--light);
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    min-height: 100vh;
 }
 
 .container {
@@ -68,38 +82,63 @@ body {
 /* Membership Plans Section */
 .membership-plans {
     padding: 80px 0;
+    background: var(--white);
+    margin: 40px auto;
+    border-radius: 20px;
+    box-shadow: var(--shadow-sm);
+    max-width: 1200px;
 }
 
 .plan-cards {
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 30px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 32px;
     margin-top: 50px;
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0 20px;
 }
 
 .plan-card {
-    background-color: var(--light);
-    border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    background: var(--white);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
     overflow: hidden;
-    width: 350px;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    transition: var(--transition);
     position: relative;
+    border: 2px solid transparent;
 }
 
 .plan-card:hover {
-    transform: translateY(-10px);
-    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+    transform: translateY(-8px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary-light);
 }
 
 .plan-card.featured {
-    border: 2px solid var(--primary);
-    transform: scale(1.05);
+    border-color: var(--primary);
+    position: relative;
+    transform: scale(1.02);
+}
+
+.plan-card.featured::before {
+    content: 'Most Popular';
+    position: absolute;
+    top: 20px;
+    right: -35px;
+    background: var(--gradient-primary);
+    color: var(--white);
+    padding: 8px 45px;
+    font-size: 12px;
+    font-weight: 600;
+    transform: rotate(45deg);
+    z-index: 10;
+    box-shadow: var(--shadow-sm);
 }
 
 .plan-card.featured:hover {
-    transform: scale(1.05) translateY(-10px);
+    transform: scale(1.02) translateY(-8px);
 }
 
 .featured-tag {
@@ -115,19 +154,49 @@ body {
 }
 
 .plan-header {
-    background-color: var(--dark);
-    color: var(--light);
-    padding: 30px 20px;
+    background: var(--gradient-secondary);
+    color: var(--white);
+    padding: 40px 24px;
     text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.plan-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+    transform: rotate(45deg);
+    transition: var(--transition);
+}
+
+.plan-card:hover .plan-header::before {
+    animation: shimmer 1.5s ease-in-out;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%) rotate(45deg); }
+    100% { transform: translateX(100%) rotate(45deg); }
 }
 
 .plan-header h3 {
-    font-size: 24px;
-    margin-bottom: 15px;
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    position: relative;
+    z-index: 1;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .price {
     font-size: 18px;
+    position: relative;
+    z-index: 1;
 }
 
 .price .currency {
@@ -136,9 +205,12 @@ body {
 }
 
 .price .amount {
-    font-size: 48px;
-    font-weight: 700;
-    color: var(--primary);
+    font-size: 56px;
+    font-weight: 800;
+    color: var(--primary-light);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: block;
+    line-height: 1;
 }
 
 .price .period {
@@ -186,20 +258,46 @@ body {
 }
 
 .select-plan {
-    background-color: var(--primary);
-    color: var(--light);
+    background: var(--gradient-primary);
+    color: var(--white);
     border: none;
-    padding: 12px 30px;
-    border-radius: 5px;
+    padding: 16px 32px;
+    border-radius: var(--border-radius);
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.3s ease;
+    transition: var(--transition);
     width: 100%;
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    overflow: hidden;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.select-plan::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: var(--transition);
 }
 
 .select-plan:hover {
-    background-color: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.select-plan:hover::before {
+    left: 100%;
+}
+
+.select-plan:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-sm);
 }
 
 /* Customization Section */
@@ -230,15 +328,24 @@ body {
 
 .addons-container {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
     margin-bottom: 40px;
 }
 
 .addon-item {
-    border: 1px solid var(--gray);
-    border-radius: 8px;
+    border: 2px solid var(--gray-light);
+    border-radius: var(--border-radius);
     overflow: hidden;
+    transition: var(--transition);
+    background: var(--white);
+    box-shadow: var(--shadow-sm);
+}
+
+.addon-item:hover {
+    border-color: var(--primary-light);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-4px);
 }
 
 .addon-item input[type="checkbox"] {
@@ -249,19 +356,38 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px;
+    padding: 24px;
     cursor: pointer;
-    transition: background-color 0.3s ease;
+    transition: var(--transition);
+    position: relative;
+}
+
+.addon-item label::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--gradient-primary);
+    transform: scaleY(0);
+    transition: var(--transition);
 }
 
 .addon-item input[type="checkbox"]:checked + label {
-    background-color: rgba(255, 107, 0, 0.1);
-    border: 1px solid var(--primary);
+    background: linear-gradient(135deg, rgba(255, 87, 34, 0.05) 0%, rgba(255, 112, 67, 0.1) 100%);
+    border-color: var(--primary);
+}
+
+.addon-item input[type="checkbox"]:checked + label::before {
+    transform: scaleY(1);
 }
 
 .addon-info h4 {
     font-size: 18px;
-    margin-bottom: 5px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--dark);
 }
 
 .addon-info p {
@@ -270,16 +396,40 @@ body {
 }
 
 .addon-price {
-    font-weight: 600;
+    font-weight: 700;
     color: var(--primary);
+    font-size: 18px;
+    padding: 8px 16px;
+    background: rgba(255, 87, 34, 0.1);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 87, 34, 0.2);
+    transition: var(--transition);
+}
+
+.addon-item:hover .addon-price {
+    background: rgba(255, 87, 34, 0.15);
+    transform: scale(1.05);
 }
 
 .membership-summary {
-    background-color: var(--dark);
-    color: var(--light);
-    padding: 25px;
-    border-radius: 8px;
+    background: var(--gradient-secondary);
+    color: var(--white);
+    padding: 32px;
+    border-radius: var(--border-radius);
     margin-bottom: 40px;
+    box-shadow: var(--shadow-md);
+    position: relative;
+    overflow: hidden;
+}
+
+.membership-summary::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--gradient-primary);
 }
 
 .membership-summary h3 {
@@ -314,35 +464,76 @@ body {
 }
 
 .personal-info h3,
-.payment-info h3 {
-    margin-bottom: 20px;
-    font-size: 20px;
+.payment-info h3,
+.plan-selection-section h3 {
+    margin-bottom: 24px;
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--dark);
+    position: relative;
+    padding-bottom: 12px;
+}
+
+.personal-info h3::after,
+.payment-info h3::after,
+.plan-selection-section h3::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 60px;
+    height: 3px;
+    background: var(--gradient-primary);
+    border-radius: 2px;
 }
 
 .form-row {
     display: flex;
     flex-wrap: wrap;
     gap: 20px;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 .form-group {
     flex: 1;
     min-width: 250px;
+    position: relative;
+    margin-bottom: 20px;
 }
 
 .form-group label {
     display: block;
     margin-bottom: 8px;
-    font-weight: 500;
+    font-weight: 600;
+    color: var(--dark);
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.form-group input {
+.form-group input,
+.form-group select {
     width: 100%;
-    padding: 12px 15px;
-    border: 1px solid var(--gray);
-    border-radius: 5px;
+    padding: 16px 20px;
+    border: 2px solid var(--gray-light);
+    border-radius: var(--border-radius);
     font-size: 16px;
+    transition: var(--transition);
+    background: var(--white);
+    box-shadow: var(--shadow-sm);
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(255, 87, 34, 0.1);
+    transform: translateY(-2px);
+}
+
+.form-group input:hover,
+.form-group select:hover {
+    border-color: var(--primary-light);
 }
 
 .payment-options {
@@ -392,6 +583,7 @@ body {
     font-weight: 600;
     cursor: pointer;
     transition: background-color 0.3s ease;
+    margin-bottom: 20px;
 }
 
 #back-to-plans {
@@ -479,6 +671,34 @@ body {
     color: var(--danger);
     font-size: 12px;
     margin-top: 5px;
+}
+
+/* Alert Styles for Form Functionality */
+.alert {
+    padding: 15px;
+    margin: 20px 0;
+    border-radius: 5px;
+    border: 1px solid;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+}
+
+.alert-error {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+}
+
+.alert h3 {
+    margin-top: 0;
+}
+
+.alert ul {
+    margin-bottom: 0;
 }
 
 /* Success Message Styles */

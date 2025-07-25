@@ -21,66 +21,139 @@ $current_time = date('H:i:s');
 $current_day = date('l'); // Full day name
 
 try {
-    // Get upcoming classes for the next 7 days
-    $upcoming_query = "
-        SELECT 
-            c.id as class_id,
-            c.name as class_name,
-            c.description,
-            c.duration,
-            c.capacity,
-            c.difficulty_level,
-            cs.id as schedule_id,
-            cs.day_of_week,
-            cs.start_time,
-            cs.end_time,
-            cs.room,
-            t.name as trainer_name,
-            t.specialties,
-            (SELECT COUNT(*) FROM class_bookings cb WHERE cb.schedule_id = cs.id AND cb.status = 'confirmed') as booked_count,
-            (SELECT COUNT(*) FROM class_bookings cb WHERE cb.schedule_id = cs.id AND cb.user_id = ? AND cb.status = 'confirmed') as user_booked
-        FROM classes c
-        JOIN class_schedules cs ON c.id = cs.class_id
-        JOIN trainers t ON c.trainer_id = t.id
-        WHERE c.is_active = 1 AND cs.is_active = 1
-        ORDER BY 
-            CASE 
-                WHEN cs.day_of_week = 'Monday' THEN 1
-                WHEN cs.day_of_week = 'Tuesday' THEN 2
-                WHEN cs.day_of_week = 'Wednesday' THEN 3
-                WHEN cs.day_of_week = 'Thursday' THEN 4
-                WHEN cs.day_of_week = 'Friday' THEN 5
-                WHEN cs.day_of_week = 'Saturday' THEN 6
-                WHEN cs.day_of_week = 'Sunday' THEN 7
-            END,
-            cs.start_time
+    // First, get the member's assigned trainer
+    $trainer_query = "
+        SELECT um.trainer_id, t.name as trainer_name, t.specialties
+        FROM user_memberships um
+        JOIN trainers t ON um.trainer_id = t.id
+        WHERE um.user_id = ? AND um.status = 'active'
+        ORDER BY um.created_at DESC
+        LIMIT 1
     ";
     
-    $upcoming_stmt = $pdo->prepare($upcoming_query);
-    $upcoming_stmt->execute([$user_id]);
-    $upcoming_classes = $upcoming_stmt->fetchAll(PDO::FETCH_ASSOC);
+    $trainer_stmt = $pdo->prepare($trainer_query);
+    $trainer_stmt->execute([$user_id]);
+    $assigned_trainer = $trainer_stmt->fetch(PDO::FETCH_ASSOC);
     
-    // Group classes by day
-    $classes_by_day = [];
-    foreach ($upcoming_classes as $class) {
-        $classes_by_day[$class['day_of_week']][] = $class;
+    if (!$assigned_trainer) {
+        $error_message = "You don't have an active membership with an assigned trainer. Please contact the gym to get assigned to a trainer.";
+        $all_classes = [];
+        $scheduled_classes = [];
+    } else {
+        // Get all classes for the assigned trainer
+        $classes_stmt = $pdo->prepare("
+            SELECT c.*
+            FROM classes c
+            WHERE c.trainer_id = ? AND c.is_active = 1
+            ORDER BY c.name ASC
+        ");
+        $classes_stmt->execute([$assigned_trainer['trainer_id']]);
+        $all_classes = $classes_stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Get scheduled sessions for these classes
+        $scheduled_classes = [];
+        if (!empty($all_classes)) {
+            $class_ids = array_column($all_classes, 'id');
+            $placeholders = str_repeat('?,', count($class_ids) - 1) . '?';
+            
+            $schedules_stmt = $pdo->prepare("
+                SELECT 
+                    c.*,
+                    cs.id as schedule_id,
+                    cs.day_of_week,
+                    cs.start_time,
+                    cs.end_time,
+                    cs.room,
+                    cs.is_active,
+                    (SELECT COUNT(*) FROM class_bookings cb WHERE cb.schedule_id = cs.id AND cb.status = 'confirmed') as current_bookings,
+                    (SELECT COUNT(*) FROM class_bookings cb WHERE cb.schedule_id = cs.id AND cb.user_id = ? AND cb.status = 'confirmed') as user_booked
+                FROM classes c
+                JOIN class_schedules cs ON c.id = cs.class_id
+                WHERE c.id IN ($placeholders)
+                AND cs.is_active = 1
+                ORDER BY 
+                    CASE cs.day_of_week
+                        WHEN 'Monday' THEN 1
+                        WHEN 'Tuesday' THEN 2
+                        WHEN 'Wednesday' THEN 3
+                        WHEN 'Thursday' THEN 4
+                        WHEN 'Friday' THEN 5
+                        WHEN 'Saturday' THEN 6
+                        WHEN 'Sunday' THEN 7
+                    END,
+                    cs.start_time ASC
+            ");
+            $params = array_merge([$user_id], $class_ids);
+            $schedules_stmt->execute($params);
+            $scheduled_classes = $schedules_stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
     }
     
-    // Handle class booking
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['book_class'])) {
-        $schedule_id = $_POST['schedule_id'];
+    // Initialize classes_by_day array
+    $classes_by_day = [];
+    
+    // Handle form submissions
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && isset($_POST['schedule_id'])) {
+        $schedule_id = (int)$_POST['schedule_id'];
+        $action = $_POST['action'];
         
-        // Check if user already booked this class
-        $check_stmt = $pdo->prepare("SELECT id FROM class_bookings WHERE user_id = ? AND schedule_id = ?");
-        $check_stmt->execute([$user_id, $schedule_id]);
-        
-        if (!$check_stmt->fetch()) {
-            // Book the class
-            $book_stmt = $pdo->prepare("INSERT INTO class_bookings (user_id, schedule_id, booking_date, status) VALUES (?, ?, CURDATE(), 'confirmed')");
-            $book_stmt->execute([$user_id, $schedule_id]);
-            $success_message = "Class booked successfully!";
-        } else {
-            $error_message = "You have already booked this class.";
+        try {
+            if ($action === 'book') {
+                // Check if user already has a confirmed booking
+                $check_confirmed = $pdo->prepare("SELECT id FROM class_bookings WHERE user_id = ? AND schedule_id = ? AND status = 'confirmed'");
+                $check_confirmed->execute([$user_id, $schedule_id]);
+                
+                if (!$check_confirmed->fetch()) {
+                    // Check class capacity
+                    $capacity_stmt = $pdo->prepare("
+                        SELECT 
+                            c.capacity,
+                            (SELECT COUNT(*) FROM class_bookings cb WHERE cb.schedule_id = ? AND cb.status = 'confirmed') as current_bookings
+                        FROM class_schedules cs
+                        JOIN classes c ON cs.class_id = c.id
+                        WHERE cs.id = ?
+                    ");
+                    $capacity_stmt->execute([$schedule_id, $schedule_id]);
+                    $capacity_info = $capacity_stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($capacity_info && $capacity_info['current_bookings'] < $capacity_info['capacity']) {
+                        // Check if user has a cancelled booking that can be reactivated
+                        $check_cancelled = $pdo->prepare("SELECT id FROM class_bookings WHERE user_id = ? AND schedule_id = ? AND status = 'cancelled' ORDER BY created_at DESC LIMIT 1");
+                        $check_cancelled->execute([$user_id, $schedule_id]);
+                        $cancelled_booking = $check_cancelled->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($cancelled_booking) {
+                            // Reactivate the existing cancelled booking
+                            $reactivate_stmt = $pdo->prepare("UPDATE class_bookings SET status = 'confirmed', booking_date = NOW() WHERE id = ?");
+                            $reactivate_stmt->execute([$cancelled_booking['id']]);
+                            $success_message = "Class booked successfully!";
+                        } else {
+                            // Create new booking
+                            $book_stmt = $pdo->prepare("INSERT INTO class_bookings (user_id, schedule_id, booking_date, status) VALUES (?, ?, NOW(), 'confirmed')");
+                            $book_stmt->execute([$user_id, $schedule_id]);
+                            $success_message = "Class booked successfully!";
+                        }
+                    } else {
+                        $error_message = "Sorry, this class is full.";
+                    }
+                } else {
+                    $error_message = "You have already booked this class.";
+                }
+                
+            } elseif ($action === 'cancel') {
+                // Cancel the booking
+                $cancel_stmt = $pdo->prepare("UPDATE class_bookings SET status = 'cancelled' WHERE user_id = ? AND schedule_id = ? AND status = 'confirmed'");
+                $result = $cancel_stmt->execute([$user_id, $schedule_id]);
+                
+                if ($cancel_stmt->rowCount() > 0) {
+                    $success_message = "Booking cancelled successfully!";
+                } else {
+                    $error_message = "Could not cancel booking. You may not have a confirmed booking for this class.";
+                }
+            }
+            
+        } catch (Exception $e) {
+            $error_message = "Error processing request: " . $e->getMessage();
         }
         
         // Refresh the page to show updated data
@@ -99,132 +172,44 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Upcoming Classes - FitLife Gym</title>
-    <link rel="stylesheet" href="../assets/css/styles.css">
-    <link rel="stylesheet" href="../assets/css/navbar.css">
-    <link rel="stylesheet" href="../assets/css/footer.css">
+    <link rel="stylesheet" href="../assets/css/styles.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="../assets/css/navbar.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="../assets/css/footer.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="../assets/css/upcoming-classes.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        .classes-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .day-section {
-            margin-bottom: 30px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 20px;
-        }
-        .day-header {
-            color: #333;
-            border-bottom: 2px solid #007bff;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-        }
-        .class-card {
-            background: white;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            border-left: 4px solid #007bff;
-        }
-        .class-header {
-            display: flex;
-            justify-content: between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .class-name {
-            font-size: 1.2em;
-            font-weight: bold;
-            color: #333;
-        }
-        .class-time {
-            color: #007bff;
-            font-weight: bold;
-        }
-        .class-details {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin: 15px 0;
-        }
-        .detail-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .detail-item i {
-            color: #007bff;
-            width: 16px;
-        }
-        .capacity-bar {
-            background: #e9ecef;
-            border-radius: 10px;
-            height: 8px;
-            overflow: hidden;
-            margin-top: 5px;
-        }
-        .capacity-fill {
-            background: #28a745;
-            height: 100%;
-            transition: width 0.3s ease;
-        }
-        .capacity-fill.full {
-            background: #dc3545;
-        }
-        .book-btn {
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        .book-btn:disabled {
-            background: #6c757d;
-            cursor: not-allowed;
-        }
-        .booked-badge {
-            background: #007bff;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 15px;
-            font-size: 0.8em;
-        }
-        .difficulty-badge {
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 0.8em;
-            font-weight: bold;
-        }
-        .difficulty-beginner { background: #d4edda; color: #155724; }
-        .difficulty-intermediate { background: #fff3cd; color: #856404; }
-        .difficulty-advanced { background: #f8d7da; color: #721c24; }
-        .alert {
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 5px;
-        }
-        .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        .alert-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-    </style>
 </head>
 <body>
     <?php include_once __DIR__ . '/../includes/components/navbar.php'; ?>
     
     <div class="classes-container">
         <h1><i class="fas fa-calendar-alt"></i> Upcoming Classes</h1>
+        
+        <?php if (isset($success_message)): ?>
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i> <?php echo htmlspecialchars($success_message); ?>
+            </div>
+        <?php endif; ?>
+        
+        <?php if (isset($error_message)): ?>
+            <div class="alert alert-error">
+                <i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($error_message); ?>
+            </div>
+        <?php endif; ?>
+        
+        <?php if (isset($assigned_trainer) && is_array($assigned_trainer)): ?>
+            <div class="trainer-info-header">
+                <div class="trainer-card">
+                    <div class="trainer-details">
+                        <h3><i class="fas fa-user-tie"></i> Your Personal Trainer</h3>
+                        <h2><?php echo htmlspecialchars($assigned_trainer['trainer_name'] ?? 'Unknown Trainer'); ?></h2>
+                        <?php if (!empty($assigned_trainer['specialties'])): ?>
+                            <p class="specialties"><i class="fas fa-star"></i> <strong>Specialties:</strong> <?php echo htmlspecialchars($assigned_trainer['specialties']); ?></p>
+                        <?php endif; ?>
+                        <p class="info-text">Below are the classes and sessions available with your assigned trainer.</p>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
         
         <?php if (isset($success_message)): ?>
             <div class="alert alert-success"><?php echo $success_message; ?></div>
@@ -234,12 +219,24 @@ try {
             <div class="alert alert-error"><?php echo $error_message; ?></div>
         <?php endif; ?>
         
-        <?php if (empty($upcoming_classes)): ?>
-            <div class="alert alert-error">
+        <?php if (empty($scheduled_classes)): ?>
+            <div class="no-classes">
+                <i class="fas fa-calendar-times"></i>
                 <h3>No Classes Scheduled</h3>
-                <p>There are currently no upcoming classes scheduled. Please check back later or contact the gym for more information.</p>
+                <?php if (isset($assigned_trainer) && is_array($assigned_trainer)): ?>
+                    <p>Your trainer <?php echo htmlspecialchars($assigned_trainer['trainer_name'] ?? 'Unknown Trainer'); ?> doesn't have any classes scheduled yet. Please contact the gym or your trainer to schedule sessions.</p>
+                <?php else: ?>
+                    <p>There are currently no upcoming classes scheduled. Please check back later or contact the gym for more information.</p>
+                <?php endif; ?>
             </div>
         <?php else: ?>
+            <?php 
+            // Group classes by day of week
+            $classes_by_day = [];
+            foreach ($scheduled_classes as $class) {
+                $classes_by_day[$class['day_of_week']][] = $class;
+            }
+            ?>
             <?php foreach ($classes_by_day as $day => $day_classes): ?>
                 <div class="day-section">
                     <h2 class="day-header">
@@ -249,15 +246,15 @@ try {
                     
                     <?php foreach ($day_classes as $class): ?>
                         <?php
-                        $capacity_percentage = $class['capacity'] > 0 ? ($class['booked_count'] / $class['capacity']) * 100 : 0;
-                        $is_full = $class['booked_count'] >= $class['capacity'];
+                        $capacity_percentage = $class['capacity'] > 0 ? ($class['current_bookings'] / $class['capacity']) * 100 : 0;
+                        $is_full = $class['current_bookings'] >= $class['capacity'];
                         $is_booked = $class['user_booked'] > 0;
                         ?>
                         
                         <div class="class-card">
                             <div class="class-header">
                                 <div>
-                                    <div class="class-name"><?php echo htmlspecialchars($class['class_name']); ?></div>
+                                    <div class="class-name"><?php echo htmlspecialchars($class['name']); ?></div>
                                     <div class="class-time">
                                         <i class="fas fa-clock"></i> 
                                         <?php echo date('g:i A', strtotime($class['start_time'])); ?> - 
@@ -280,48 +277,61 @@ try {
                             
                             <div class="class-details">
                                 <div class="detail-item">
-                                    <i class="fas fa-user"></i>
-                                    <span>Trainer: <strong><?php echo htmlspecialchars($class['trainer_name']); ?></strong></span>
-                                </div>
-                                <div class="detail-item">
                                     <i class="fas fa-clock"></i>
-                                    <span>Duration: <strong><?php echo $class['duration']; ?> minutes</strong></span>
-                                </div>
-                                <div class="detail-item">
-                                    <i class="fas fa-map-marker-alt"></i>
-                                    <span>Room: <strong><?php echo htmlspecialchars($class['room'] ?? 'TBA'); ?></strong></span>
+                                    <span><strong>Duration:</strong> <?php echo $class['duration']; ?> minutes</span>
                                 </div>
                                 <div class="detail-item">
                                     <i class="fas fa-users"></i>
-                                    <span>
-                                        Capacity: <strong><?php echo $class['booked_count']; ?>/<?php echo $class['capacity']; ?></strong>
-                                        <div class="capacity-bar">
-                                            <div class="capacity-fill <?php echo $is_full ? 'full' : ''; ?>" 
-                                                 style="width: <?php echo min(100, $capacity_percentage); ?>%"></div>
-                                        </div>
+                                    <span><strong>Capacity:</strong> <?php echo $class['current_bookings']; ?>/<?php echo $class['capacity']; ?></span>
+                                </div>
+                                <div class="detail-item">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span><strong>Location:</strong> <?php echo htmlspecialchars($class['location'] ?? 'Main Gym'); ?></span>
+                                </div>
+                                <div class="detail-item">
+                                    <i class="fas fa-signal"></i>
+                                    <span><strong>Difficulty:</strong> 
+                                        <span class="difficulty-badge difficulty-<?php echo strtolower($class['difficulty_level'] ?? 'beginner'); ?>">
+                                            <?php echo ucfirst($class['difficulty_level'] ?? 'Beginner'); ?>
+                                        </span>
                                     </span>
                                 </div>
                             </div>
                             
-                            <?php if ($class['specialties']): ?>
-                                <div class="detail-item">
-                                    <i class="fas fa-star"></i>
-                                    <span>Specialties: <em><?php echo htmlspecialchars($class['specialties']); ?></em></span>
+                            <div class="capacity-info">
+                                <div class="capacity-bar">
+                                    <div class="capacity-fill <?php echo $capacity_percentage > 80 ? ($is_full ? 'full' : 'warning') : ''; ?>" 
+                                         style="width: <?php echo $capacity_percentage; ?>%"></div>
                                 </div>
-                            <?php endif; ?>
+                            </div>
                             
-                            <?php if ($user_role === 'member' && !$is_booked): ?>
-                                <form method="POST" style="margin-top: 15px;">
-                                    <input type="hidden" name="schedule_id" value="<?php echo $class['schedule_id']; ?>">
-                                    <button type="submit" name="book_class" class="book-btn" <?php echo $is_full ? 'disabled' : ''; ?>>
+                            <div class="class-actions">
+                                <?php if ($is_booked): ?>
+                                    <span class="booked-badge">✓ Booked</span>
+                                    <form method="POST" style="display: inline;">
+                                        <input type="hidden" name="action" value="cancel">
+                                        <input type="hidden" name="schedule_id" value="<?php echo $class['schedule_id']; ?>">
+                                        <button type="submit" class="cancel-btn">Cancel Booking</button>
+                                    </form>
+                                <?php else: ?>
+                                    <div class="booking-info">
                                         <?php if ($is_full): ?>
-                                            <i class="fas fa-times"></i> Class Full
+                                            <span class="text-danger"><i class="fas fa-exclamation-circle"></i> Class Full</span>
+                                        <?php elseif ($capacity_percentage > 80): ?>
+                                            <span class="text-warning"><i class="fas fa-clock"></i> Almost Full</span>
                                         <?php else: ?>
-                                            <i class="fas fa-plus"></i> Book This Class
+                                            <span class="text-success"><i class="fas fa-check-circle"></i> Available</span>
                                         <?php endif; ?>
-                                    </button>
-                                </form>
-                            <?php endif; ?>
+                                    </div>
+                                    <form method="POST" style="display: inline;">
+                                        <input type="hidden" name="action" value="book">
+                                        <input type="hidden" name="schedule_id" value="<?php echo $class['schedule_id']; ?>">
+                                        <button type="submit" class="book-btn" <?php echo $is_full ? 'disabled' : ''; ?>>
+                                            <i class="fas fa-plus"></i> <?php echo $is_full ? 'Class Full' : 'Book Now'; ?>
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
                         </div>
                     <?php endforeach; ?>
                 </div>
@@ -330,5 +340,135 @@ try {
     </div>
     
     <?php include_once __DIR__ . '/../includes/components/footer.php'; ?>
+    
+    <script>
+    function bookClass(scheduleId, className, date, time) {
+        if (!confirm(`Are you sure you want to book "${className}" on ${date} at ${time}?`)) {
+            return;
+        }
+        
+        const bookBtn = document.querySelector(`button[onclick*="${scheduleId}"]`);
+        const originalText = bookBtn.innerHTML;
+        bookBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Booking...';
+        bookBtn.disabled = true;
+        
+        fetch('../actions/book_class.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `schedule_id=${scheduleId}`
+        })
+        .then(response => {
+            // Debug: log the raw response
+            console.log('Raw response status:', response.status);
+            return response.text();
+        })
+        .then(text => {
+            // Debug: log the raw text
+            console.log('Raw response text:', text);
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                console.error('JSON parse error:', e);
+                console.error('Response text:', text);
+                throw new Error('Invalid JSON response from server');
+            }
+        })
+        .then(data => {
+            if (data.success) {
+                bookBtn.innerHTML = '<i class="fas fa-check"></i> Booked!';
+                bookBtn.className = 'book-btn booked';
+                bookBtn.disabled = true;
+                
+                // Show success message
+                showMessage(data.message, 'success');
+                
+                // Update capacity display if exists
+                const classCard = bookBtn.closest('.class-card');
+                if (classCard) {
+                    const capacityElement = classCard.querySelector('.capacity-info');
+                    if (capacityElement) {
+                        // Refresh the page to show updated capacity
+                        setTimeout(() => {
+                            location.reload();
+                        }, 1500);
+                    }
+                }
+            } else {
+                bookBtn.innerHTML = originalText;
+                bookBtn.disabled = false;
+                showMessage(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Booking error:', error);
+            bookBtn.innerHTML = originalText;
+            bookBtn.disabled = false;
+            showMessage('An error occurred while booking the class. Please try again.', 'error');
+        });
+    }
+    
+    function showMessage(message, type) {
+        // Remove existing messages
+        const existingMessages = document.querySelectorAll('.booking-message');
+        existingMessages.forEach(msg => msg.remove());
+        
+        // Create new message
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `booking-message alert alert-${type === 'success' ? 'success' : 'danger'}`;
+        messageDiv.innerHTML = `
+            <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+            ${message}
+        `;
+        messageDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-width: 400px;
+            animation: slideIn 0.3s ease-out;
+        `;
+        
+        document.body.appendChild(messageDiv);
+        
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            messageDiv.style.animation = 'slideOut 0.3s ease-in';
+            setTimeout(() => messageDiv.remove(), 300);
+        }, 5000);
+    }
+    
+    // Add CSS animations
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .book-btn.booked {
+            background: #28a745 !important;
+            cursor: not-allowed;
+        }
+    `;
+    document.head.appendChild(style);
+    </script>
 </body>
 </html>

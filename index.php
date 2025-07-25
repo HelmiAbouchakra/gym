@@ -55,7 +55,7 @@ require_once __DIR__ . '/config/db_config.php';
                 <?php elseif ($is_logged_in): ?>
                     <h1>Welcome to FitLife Gym</h1>
                     <p>Continue your fitness journey with us. Book a class, check your membership status, or explore our facilities.</p>
-                    <a href="<?php echo $base_url; ?>pages/bookings.php" class="btn">Book a Class</a>
+                    <a href="<?php echo $base_url; ?>pages/upcoming-classes.php" class="btn">Book a Class</a>
                 <?php else: ?>
                     <h1>Transform Your Body, Transform Your Life</h1>
                     <p>Join FitLife Gym today and start your journey towards a healthier, stronger you. Our state-of-the-art facilities and expert trainers are here to help you achieve your fitness goals.</p>
@@ -265,7 +265,7 @@ require_once __DIR__ . '/config/db_config.php';
             <?php elseif ($is_logged_in): ?>
                 <h2>Ready to Push Your Limits?</h2>
                 <p>Take your fitness to the next level with our expert trainers and specialized classes.</p>
-                <a href="<?php echo $base_url; ?>pages/bookings.php" class="btn">Book a Class Now</a>
+                <a href="<?php echo $base_url; ?>pages/upcoming-classes.php" class="btn">Book a Class</a>
             <?php else: ?>
                 <h2>Start Your Fitness Journey Today</h2>
                 <p>Join FitLife Gym and transform your body and mind with our expert trainers and state-of-the-art facilities.</p>

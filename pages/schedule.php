@@ -66,6 +66,16 @@ try {
     $schedule_stmt->execute([$trainer_id]);
     $all_schedules = $schedule_stmt->fetchAll(PDO::FETCH_ASSOC);
     
+    // Get trainer's personal availability schedule
+    $personal_schedule_query = "
+        SELECT * FROM trainer_schedules 
+        WHERE trainer_id = ? 
+        ORDER BY FIELD(day_of_week, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
+    ";
+    $personal_schedule_stmt = $pdo->prepare($personal_schedule_query);
+    $personal_schedule_stmt->execute([$trainer_id]);
+    $trainer_personal_schedule = $personal_schedule_stmt->fetchAll(PDO::FETCH_ASSOC);
+    
     // Organize schedules by day of week
     $schedules_by_day = [
         'Monday' => [],
@@ -101,6 +111,138 @@ try {
     <link rel="stylesheet" href="../assets/css/navbar.css">
     <link rel="stylesheet" href="../assets/css/footer.css">
     <link rel="stylesheet" href="../assets/css/schedule.css">
+    
+    <style>
+        .personal-schedule-section {
+            margin-bottom: 40px;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .section-title {
+            color: #2c3e50;
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section-title::before {
+            content: "";
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px;
+        }
+        
+        .no-schedule {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+            font-size: 16px;
+        }
+        
+        .no-schedule i {
+            font-size: 24px;
+            margin-right: 10px;
+            color: #17a2b8;
+        }
+        
+        .availability-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .availability-day {
+            background: #fff;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .availability-day:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.12);
+        }
+        
+        .availability-day.available {
+            border-color: #28a745;
+            background: linear-gradient(135deg, #f8fff9 0%, #e8f5e9 100%);
+        }
+        
+        .availability-day.unavailable {
+            border-color: #dc3545;
+            background: linear-gradient(135deg, #fff8f8 0%, #ffebee 100%);
+        }
+        
+        .day-name {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+        }
+        
+        .status-indicator {
+            font-weight: 500;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .status-indicator.available {
+            color: #28a745;
+        }
+        
+        .status-indicator.unavailable {
+            color: #dc3545;
+        }
+        
+        .status-indicator i {
+            margin-right: 8px;
+            font-size: 16px;
+        }
+        
+        .time-range {
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 12px;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.7);
+            color: #495057;
+        }
+        
+        .time-range.blocked {
+            color: #6c757d;
+            background: rgba(108,117,125,0.1);
+        }
+        
+        .class-schedules-section {
+            margin-top: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .availability-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 15px;
+            }
+            
+            .availability-day {
+                padding: 15px;
+            }
+            
+            .section-title {
+                font-size: 20px;
+            }
+        }
+    </style>
 
 </head>
 <body>
@@ -115,13 +257,57 @@ try {
                 <?php echo $error; ?>
             </div>
         <?php else: ?>
+            <!-- Trainer Personal Availability Schedule -->
+            <div class="personal-schedule-section">
+                <h2 class="section-title">My Availability Schedule</h2>
+                
+                <?php if (empty($trainer_personal_schedule)): ?>
+                    <div class="no-schedule">
+                        <p><i class="fas fa-info-circle"></i> No availability schedule has been set by the admin yet.</p>
+                    </div>
+                <?php else: ?>
+                    <div class="availability-grid">
+                        <?php foreach ($trainer_personal_schedule as $schedule): ?>
+                            <div class="availability-day <?php echo $schedule['is_available'] ? 'available' : 'unavailable'; ?>">
+                                <h3 class="day-name"><?php echo htmlspecialchars($schedule['day_of_week']); ?></h3>
+                                <div class="availability-status">
+                                    <?php if ($schedule['is_available']): ?>
+                                        <div class="status-indicator available">
+                                            <i class="fas fa-check-circle"></i> Available
+                                        </div>
+                                        <div class="time-range">
+                                            <?php 
+                                                echo date('g:i A', strtotime($schedule['start_time'])); 
+                                                echo ' - '; 
+                                                echo date('g:i A', strtotime($schedule['end_time']));
+                                            ?>
+                                        </div>
+                                    <?php else: ?>
+                                        <div class="status-indicator unavailable">
+                                            <i class="fas fa-times-circle"></i> Not Available
+                                        </div>
+                                        <div class="time-range blocked">
+                                            <?php 
+                                                echo date('g:i A', strtotime($schedule['start_time'])); 
+                                                echo ' - '; 
+                                                echo date('g:i A', strtotime($schedule['end_time']));
+                                            ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+            
+            <!-- Class Schedules Section -->
+            <div class="class-schedules-section">
+                <h2 class="section-title">My Class Schedules</h2>
             <?php foreach ($schedules_by_day as $day => $schedules): ?>
+                <?php if (!empty($schedules)): ?>
                 <div class="day-schedule">
                     <h2 class="day-title"><?php echo $day; ?></h2>
-                    
-                    <?php if (empty($schedules)): ?>
-                        <p class="schedule-empty">No classes scheduled for this day.</p>
-                    <?php else: ?>
                         <?php foreach ($schedules as $schedule): ?>
                             <div class="class-card">
                                 <div class="class-time">
@@ -177,8 +363,8 @@ try {
                                 </div>
                             </div>
                         <?php endforeach; ?>
-                    <?php endif; ?>
                 </div>
+                <?php endif; ?>
             <?php endforeach; ?>
         <?php endif; ?>
     </div>

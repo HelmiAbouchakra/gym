@@ -228,11 +228,66 @@ try {
                 <h1 class="dashboard-title">Trainer Dashboard</h1>
                 <p class="dashboard-welcome">Welcome back, <?php echo htmlspecialchars($trainer['name']); ?>!</p>
             </div>
-            <div class="header-actions">
-                <a href="upcoming-classes.php" class="btn btn-primary" style="margin-right: 10px;"><i class="fas fa-calendar-alt"></i> Upcoming Classes</a>
-                <a href="class-clients.php" class="btn btn-primary" style="margin-right: 10px;"><i class="fas fa-users"></i> Class Clients</a>
-                <a href="class-statistics.php" class="btn btn-primary" style="margin-right: 10px;"><i class="fas fa-chart-bar"></i> Statistics</a>
-                <a href="<?php echo $base_url; ?>pages/profile.php" class="btn btn-outline">Edit Profile</a>
+            <div class="dashboard-nav-grid">
+                <a href="manage-schedules.php" class="nav-card primary">
+                    <div class="nav-icon">
+                        <i class="fas fa-calendar-plus"></i>
+                    </div>
+                    <div class="nav-content">
+                        <h4>Manage Class Schedules</h4>
+                        <p>Create and edit your weekly class schedules</p>
+                    </div>
+                </a>
+                
+                <a href="upcoming-classes.php" class="nav-card secondary">
+                    <div class="nav-icon">
+                        <i class="fas fa-calendar-alt"></i>
+                    </div>
+                    <div class="nav-content">
+                        <h4>Upcoming Classes</h4>
+                        <p>View and manage your scheduled classes</p>
+                    </div>
+                </a>
+                
+                <a href="class-clients.php" class="nav-card tertiary">
+                    <div class="nav-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="nav-content">
+                        <h4>Class Clients</h4>
+                        <p>Manage your class participants</p>
+                    </div>
+                </a>
+                
+                <a href="schedule.php" class="nav-card quaternary">
+                    <div class="nav-icon">
+                        <i class="fas fa-calendar"></i>
+                    </div>
+                    <div class="nav-content">
+                        <h4>View My Schedule</h4>
+                        <p>See your personal training schedule</p>
+                    </div>
+                </a>
+                
+                <a href="class-statistics.php" class="nav-card accent">
+                    <div class="nav-icon">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    <div class="nav-content">
+                        <h4>Statistics</h4>
+                        <p>View class and performance analytics</p>
+                    </div>
+                </a>
+                
+                <a href="<?php echo $base_url; ?>pages/profile.php" class="nav-card outline">
+                    <div class="nav-icon">
+                        <i class="fas fa-user-edit"></i>
+                    </div>
+                    <div class="nav-content">
+                        <h4>Edit Profile</h4>
+                        <p>Update your trainer information</p>
+                    </div>
+                </a>
             </div>
         </div>
         
@@ -429,5 +484,316 @@ try {
     
     <!-- Include Footer Component -->
     <?php include_once __DIR__ . '/../includes/components/footer.php'; ?>
+    
+    <style>
+    /* Premium Navigation Cards Styling */
+    .dashboard-nav-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        margin: 40px 0;
+        padding: 0;
+        justify-content: center;
+    }
+    
+    .nav-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding: 25px 20px;
+        border-radius: 20px;
+        text-decoration: none;
+        color: white;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        position: relative;
+        overflow: hidden;
+        min-height: 160px;
+        width: 180px;
+        flex-shrink: 0;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+    }
+    
+    .nav-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(0, 0, 0, 0.05) 100%);
+        z-index: 1;
+        transition: opacity 0.3s ease;
+    }
+    
+    .nav-card::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+        transform: translateX(-100%) translateY(-100%) rotate(45deg);
+        transition: transform 0.6s ease;
+        z-index: 3;
+    }
+    
+    .nav-card:hover::after {
+        transform: translateX(100%) translateY(100%) rotate(45deg);
+    }
+    
+    .nav-card:hover {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+        text-decoration: none;
+        color: white;
+    }
+    
+    .nav-card:hover::before {
+        opacity: 0.8;
+    }
+    
+    /* Premium Color Variations with Enhanced Gradients */
+    .nav-card.primary {
+        background: linear-gradient(135deg, #ff5722 0%, #ff7043 25%, #ff8a65 50%, #e64a19 100%);
+        box-shadow: 0 10px 30px rgba(255, 87, 34, 0.3);
+    }
+    
+    .nav-card.primary:hover {
+        box-shadow: 0 20px 40px rgba(255, 87, 34, 0.4);
+    }
+    
+    .nav-card.secondary {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 25%, #3c5a78 50%, #1a252f 100%);
+        box-shadow: 0 10px 30px rgba(44, 62, 80, 0.3);
+    }
+    
+    .nav-card.secondary:hover {
+        box-shadow: 0 20px 40px rgba(44, 62, 80, 0.4);
+    }
+    
+    .nav-card.tertiary {
+        background: linear-gradient(135deg, #28a745 0%, #34ce57 25%, #4ade80 50%, #20c997 100%);
+        box-shadow: 0 10px 30px rgba(40, 167, 69, 0.3);
+    }
+    
+    .nav-card.tertiary:hover {
+        box-shadow: 0 20px 40px rgba(40, 167, 69, 0.4);
+    }
+    
+    .nav-card.quaternary {
+        background: linear-gradient(135deg, #6f42c1 0%, #8b5cf6 25%, #a78bfa 50%, #5a2d91 100%);
+        box-shadow: 0 10px 30px rgba(111, 66, 193, 0.3);
+    }
+    
+    .nav-card.quaternary:hover {
+        box-shadow: 0 20px 40px rgba(111, 66, 193, 0.4);
+    }
+    
+    .nav-card.accent {
+        background: linear-gradient(135deg, #fd7e14 0%, #ff9500 25%, #ffab40 50%, #e55100 100%);
+        box-shadow: 0 10px 30px rgba(253, 126, 20, 0.3);
+    }
+    
+    .nav-card.accent:hover {
+        box-shadow: 0 20px 40px rgba(253, 126, 20, 0.4);
+    }
+    
+    .nav-card.outline {
+        background: linear-gradient(135deg, #6c757d 0%, #868e96 25%, #adb5bd 50%, #495057 100%);
+        box-shadow: 0 10px 30px rgba(108, 117, 125, 0.3);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .nav-card.outline:hover {
+        box-shadow: 0 20px 40px rgba(108, 117, 125, 0.4);
+    }
+    
+    .nav-icon {
+        font-size: 3rem;
+        margin-bottom: 15px;
+        opacity: 0.95;
+        z-index: 4;
+        position: relative;
+        transition: all 0.4s ease;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+    
+    .nav-content {
+        z-index: 4;
+        position: relative;
+        text-align: center;
+    }
+    
+    .nav-content h4 {
+        font-family: 'Montserrat', sans-serif;
+        font-weight: 700;
+        font-size: 1.3rem;
+        margin: 0 0 10px 0;
+        color: white;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        letter-spacing: -0.5px;
+        transition: all 0.3s ease;
+    }
+    
+    .nav-content p {
+        font-size: 0.95rem;
+        margin: 0;
+        opacity: 0.95;
+        line-height: 1.5;
+        color: rgba(255, 255, 255, 0.95);
+        text-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
+        font-weight: 400;
+        transition: all 0.3s ease;
+    }
+    
+    /* Enhanced Hover Effects */
+    .nav-card:hover .nav-icon {
+        transform: scale(1.15) rotate(5deg);
+        opacity: 1;
+        text-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+    }
+    
+    .nav-card:hover .nav-content h4 {
+        color: white;
+        transform: translateY(-3px);
+        text-shadow: 0 3px 15px rgba(0, 0, 0, 0.4);
+    }
+    
+    .nav-card:hover .nav-content p {
+        opacity: 1;
+        transform: translateY(-3px);
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 1200px) {
+        .dashboard-nav-grid {
+            justify-content: center;
+        }
+        
+        .nav-card {
+            width: 160px;
+            min-height: 140px;
+            padding: 20px 15px;
+        }
+        
+        .nav-icon {
+            font-size: 2.5rem;
+        }
+        
+        .nav-content h4 {
+            font-size: 1.1rem;
+        }
+        
+        .nav-content p {
+            font-size: 0.85rem;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .dashboard-nav-grid {
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            margin: 25px 0;
+        }
+        
+        .nav-card {
+            width: 280px;
+            min-height: 120px;
+            padding: 20px;
+            border-radius: 16px;
+        }
+        
+        .nav-icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+        }
+        
+        .nav-content h4 {
+            font-size: 1.2rem;
+        }
+        
+        .nav-content p {
+            font-size: 0.9rem;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .nav-card {
+            width: 250px;
+            min-height: 140px;
+            padding: 25px 15px;
+        }
+        
+        .nav-icon {
+            font-size: 2.8rem;
+            margin-bottom: 15px;
+        }
+        
+        .nav-content h4 {
+            font-size: 1.15rem;
+            margin-bottom: 8px;
+        }
+        
+        .nav-content p {
+            font-size: 0.85rem;
+        }
+    }
+    
+    /* Enhanced Animation for page load */
+    .nav-card {
+        opacity: 0;
+        transform: translateY(50px) scale(0.9);
+        animation: premiumSlideIn 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+    
+    .nav-card:nth-child(1) { animation-delay: 0.1s; }
+    .nav-card:nth-child(2) { animation-delay: 0.2s; }
+    .nav-card:nth-child(3) { animation-delay: 0.3s; }
+    .nav-card:nth-child(4) { animation-delay: 0.4s; }
+    .nav-card:nth-child(5) { animation-delay: 0.5s; }
+    .nav-card:nth-child(6) { animation-delay: 0.6s; }
+    
+    @keyframes premiumSlideIn {
+        0% {
+            opacity: 0;
+            transform: translateY(50px) scale(0.9);
+        }
+        60% {
+            opacity: 0.8;
+            transform: translateY(-10px) scale(1.02);
+        }
+        100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+    
+    /* Additional Premium Effects */
+    .nav-card:active {
+        transform: translateY(-5px) scale(0.98);
+        transition: all 0.1s ease;
+    }
+    
+    /* Subtle pulse animation for primary card */
+    .nav-card.primary {
+        animation: premiumSlideIn 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards,
+                   subtlePulse 3s ease-in-out infinite 2s;
+    }
+    
+    @keyframes subtlePulse {
+        0%, 100% {
+            box-shadow: 0 10px 30px rgba(255, 87, 34, 0.3);
+        }
+        50% {
+            box-shadow: 0 15px 35px rgba(255, 87, 34, 0.4);
+        }
+    }
+    </style>
 </body>
 </html>
